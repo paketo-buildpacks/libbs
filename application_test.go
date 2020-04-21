@@ -1,0 +1,119 @@
+/*
+ * Copyright 2018-2020, VMware, Inc. All Rights Reserved.
+ * Proprietary and Confidential.
+ * Unauthorized use, copying or distribution of this source code via any medium is
+ * strictly prohibited without the express written consent of VMware, Inc.
+ */
+
+package libbs_test
+
+import (
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/buildpacks/libcnb"
+	. "github.com/onsi/gomega"
+	"github.com/paketo-buildpacks/libbs"
+	"github.com/paketo-buildpacks/libjvm"
+	"github.com/paketo-buildpacks/libpak/bard"
+	"github.com/paketo-buildpacks/libpak/effect"
+	"github.com/paketo-buildpacks/libpak/effect/mocks"
+	"github.com/sclevine/spec"
+	"github.com/stretchr/testify/mock"
+)
+
+func testApplication(t *testing.T, context spec.G, it spec.S) {
+	var (
+		Expect = NewWithT(t).Expect
+
+		cache       libbs.Cache
+		ctx         libcnb.BuildContext
+		application libbs.Application
+		executor    *mocks.Executor
+		plan        *libcnb.BuildpackPlan
+	)
+
+	it.Before(func() {
+		var err error
+
+		ctx.Application.Path, err = ioutil.TempDir("", "application-application")
+		Expect(err).NotTo(HaveOccurred())
+
+		ctx.Layers.Path, err = ioutil.TempDir("", "application-layers")
+		Expect(err).NotTo(HaveOccurred())
+
+		cache.Path, err = ioutil.TempDir("", "application-cache")
+		Expect(err).NotTo(HaveOccurred())
+
+		plan = &libcnb.BuildpackPlan{}
+
+		argumentResolver := libbs.ArgumentResolver{DefaultArguments: []string{"test-argument"}}
+		artifactResolver := libbs.ArtifactResolver{DefaultArtifact: "*"}
+		application, err = libbs.NewApplication(ctx.Application.Path, argumentResolver, artifactResolver, cache, "test-command", plan)
+		Expect(err).NotTo(HaveOccurred())
+
+		executor = &mocks.Executor{}
+		application.Executor = executor
+	})
+
+	it.After(func() {
+		Expect(os.RemoveAll(ctx.Application.Path)).To(Succeed())
+		Expect(os.RemoveAll(ctx.Layers.Path)).To(Succeed())
+		Expect(os.RemoveAll(cache.Path)).To(Succeed())
+	})
+
+	it("contributes layer", func() {
+		in, err := os.Open(filepath.Join("testdata", "stub-application.jar"))
+		Expect(err).NotTo(HaveOccurred())
+		out, err := os.OpenFile(filepath.Join(ctx.Application.Path, "stub-application.jar"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = io.Copy(out, in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(in.Close()).To(Succeed())
+		Expect(out.Close()).To(Succeed())
+		Expect(ioutil.WriteFile(filepath.Join(cache.Path, "test-file-1.1.1.jar"), []byte{}, 0644)).To(Succeed())
+
+		application.Logger = bard.NewLogger(ioutil.Discard)
+		executor.On("Execute", mock.Anything).Return(nil)
+
+		layer, err := ctx.Layers.Layer("test-layer")
+		Expect(err).NotTo(HaveOccurred())
+
+		layer, err = application.Contribute(layer)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(layer.Cache).To(BeTrue())
+
+		e := executor.Calls[0].Arguments[0].(effect.Execution)
+		Expect(e.Command).To(Equal("test-command"))
+		Expect(e.Args).To(Equal([]string{"test-argument"}))
+		Expect(e.Dir).To(Equal(ctx.Application.Path))
+		Expect(e.Stdout).NotTo(BeNil())
+		Expect(e.Stderr).NotTo(BeNil())
+
+		Expect(filepath.Join(layer.Path, "application.zip")).To(BeARegularFile())
+		Expect(filepath.Join(ctx.Application.Path, "stub-application.jar")).NotTo(BeAnExistingFile())
+		Expect(filepath.Join(ctx.Application.Path, "fixture-marker")).To(BeARegularFile())
+
+		Expect(plan).To(Equal(&libcnb.BuildpackPlan{
+			Entries: []libcnb.BuildpackPlanEntry{
+				{
+					Name: "build-dependencies",
+					Metadata: map[string]interface{}{
+						"dependencies": []libjvm.MavenJAR{
+							{
+								Name:    "test-file",
+								Version: "1.1.1",
+								SHA256:  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+							},
+						},
+					},
+				},
+			},
+		}))
+	})
+
+}

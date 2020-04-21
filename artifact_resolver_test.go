@@ -1,0 +1,144 @@
+/*
+ * Copyright 2018-2020, VMware, Inc. All Rights Reserved.
+ * Proprietary and Confidential.
+ * Unauthorized use, copying or distribution of this source code via any medium is
+ * strictly prohibited without the express written consent of VMware, Inc.
+ */
+
+package libbs_test
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+
+	. "github.com/onsi/gomega"
+	"github.com/paketo-buildpacks/libbs"
+	"github.com/paketo-buildpacks/libbs/mocks"
+	"github.com/sclevine/spec"
+	"github.com/stretchr/testify/mock"
+)
+
+func testArtifactResolver(t *testing.T, context spec.G, it spec.S) {
+	var (
+		Expect = NewWithT(t).Expect
+	)
+
+	context("AlwaysInterestingFileDetector", func() {
+		it("always passes", func() {
+			Expect(libbs.AlwaysInterestingFileDetector{}.Interesting("test-path")).To(BeTrue())
+		})
+	})
+
+	context("JARInterestingFileDetector", func() {
+		it("passes for executable JAR", func() {
+			Expect(libbs.JARInterestingFileDetector{}.Interesting(filepath.Join("testdata", "stub-executable.jar"))).
+				To(BeTrue())
+		})
+
+		it("passes for WAR", func() {
+			Expect(libbs.JARInterestingFileDetector{}.Interesting(filepath.Join("testdata", "stub-application.war"))).
+				To(BeTrue())
+		})
+
+		it("fails for non-executable JAR", func() {
+			Expect(libbs.JARInterestingFileDetector{}.Interesting(filepath.Join("testdata", "stub-application.jar"))).
+				To(BeFalse())
+		})
+	})
+
+	context("ArtifactResolver", func() {
+		var (
+			detector *mocks.InterestingFileDetector
+			path     string
+			resolver libbs.ArtifactResolver
+		)
+
+		it.Before(func() {
+			var err error
+
+			detector = &mocks.InterestingFileDetector{}
+
+			path, err = ioutil.TempDir("", "artifact-resolver")
+			Expect(err).NotTo(HaveOccurred())
+
+			resolver = libbs.ArtifactResolver{
+				ArtifactConfigurationKey: "TEST_ARTIFACT_CONFIGURATION_KEY",
+				ModuleConfigurationKey:   "TEST_MODULE_CONFIGURATION_KEY",
+				DefaultArtifact:          "test-*",
+				InterestingFileDetector:  detector,
+			}
+		})
+
+		it.After(func() {
+			Expect(os.RemoveAll(path)).To(Succeed())
+		})
+
+		it("passes with a single candidate", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file"), []byte{}, 0644)).To(Succeed())
+
+			Expect(resolver.Resolve(path)).To(Equal(filepath.Join(path, "test-file")))
+		})
+
+		it("passes with a single interesting candidate", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file-1"), []byte{}, 0644)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file-2"), []byte{}, 0644)).To(Succeed())
+			detector.On("Interesting", filepath.Join(path, "test-file-1")).Return(false, nil)
+			detector.On("Interesting", filepath.Join(path, "test-file-2")).Return(true, nil)
+
+			Expect(resolver.Resolve(path)).To(Equal(filepath.Join(path, "test-file-2")))
+		})
+
+		it("fails with zero candidates", func() {
+			_, err := resolver.Resolve(path)
+
+			Expect(err).To(MatchError("unable to find built artifact in test-*, candidates: []"))
+		})
+
+		it("fails with multiple candidates", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file-1"), []byte{}, 0644)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file-2"), []byte{}, 0644)).To(Succeed())
+			detector.On("Interesting", mock.Anything).Return(true, nil)
+
+			_, err := resolver.Resolve(path)
+
+			Expect(err).To(MatchError(fmt.Sprintf("unable to find built artifact in test-*, candidates: [%s %s]",
+				filepath.Join(path, "test-file-1"), filepath.Join(path, "test-file-2"))))
+		})
+
+		context("$TEST_ARTIFACT_CONFIGURATION_KEY", func() {
+			it.Before(func() {
+				Expect(os.Setenv("TEST_ARTIFACT_CONFIGURATION_KEY", "another-file")).To(Succeed())
+			})
+
+			it.After(func() {
+				Expect(os.Unsetenv("TEST_ARTIFACT_CONFIGURATION_KEY")).To(Succeed())
+			})
+
+			it("selects candidate from TEST_ARTIFACT_CONFIGURATION_KEY", func() {
+				Expect(ioutil.WriteFile(filepath.Join(path, "another-file"), []byte{}, 0644)).To(Succeed())
+
+				Expect(resolver.Resolve(path)).To(Equal(filepath.Join(path, "another-file")))
+			})
+		})
+
+		context("$TEST_MODULE_CONFIGURATION_KEY", func() {
+				it.Before(func() {
+					Expect(os.Setenv("TEST_MODULE_CONFIGURATION_KEY", "test-directory")).To(Succeed())
+				})
+
+				it.After(func() {
+					Expect(os.Unsetenv("TEST_MODULE_CONFIGURATION_KEY")).To(Succeed())
+				})
+
+			it("selects candidate from TEST_MODULE_CONFIGURATION_KEY", func() {
+				Expect(os.MkdirAll(filepath.Join(path, "test-directory"), 0755)).To(Succeed())
+				Expect(ioutil.WriteFile(filepath.Join(path, "test-directory", "test-file"), []byte{}, 0644)).To(Succeed())
+
+				Expect(resolver.Resolve(path)).To(Equal(filepath.Join(path, "test-directory", "test-file")))
+			})
+		})
+	})
+}
