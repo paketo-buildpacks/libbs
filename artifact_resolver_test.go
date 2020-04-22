@@ -94,7 +94,7 @@ func testArtifactResolver(t *testing.T, context spec.G, it spec.S) {
 		it("fails with zero candidates", func() {
 			_, err := resolver.Resolve(path)
 
-			Expect(err).To(MatchError("unable to find built artifact in test-*, candidates: []"))
+			Expect(err).To(MatchError("unable to find single built artifact in test-*, candidates: []"))
 		})
 
 		it("fails with multiple candidates", func() {
@@ -104,7 +104,7 @@ func testArtifactResolver(t *testing.T, context spec.G, it spec.S) {
 
 			_, err := resolver.Resolve(path)
 
-			Expect(err).To(MatchError(fmt.Sprintf("unable to find built artifact in test-*, candidates: [%s %s]",
+			Expect(err).To(MatchError(fmt.Sprintf("unable to find single built artifact in test-*, candidates: [%s %s]",
 				filepath.Join(path, "test-file-1"), filepath.Join(path, "test-file-2"))))
 		})
 

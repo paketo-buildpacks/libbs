@@ -152,5 +152,5 @@ func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 	}
 
 	sort.Strings(artifacts)
-	return "", fmt.Errorf("unable to find built artifact in %s, candidates: %s", pattern, candidates)
+	return "", fmt.Errorf("unable to find single built artifact in %s, candidates: %s", pattern, candidates)
 }
