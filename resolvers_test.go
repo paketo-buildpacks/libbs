@@ -17,11 +17,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/paketo-buildpacks/libbs"
 	"github.com/paketo-buildpacks/libbs/mocks"
+	"github.com/paketo-buildpacks/libpak"
 	"github.com/sclevine/spec"
 	"github.com/stretchr/testify/mock"
 )
 
-func testArtifactResolver(t *testing.T, context spec.G, it spec.S) {
+func testResolvers(t *testing.T, context spec.G, it spec.S) {
 	var (
 		Expect = NewWithT(t).Expect
 	)
@@ -66,9 +67,13 @@ func testArtifactResolver(t *testing.T, context spec.G, it spec.S) {
 
 			resolver = libbs.ArtifactResolver{
 				ArtifactConfigurationKey: "TEST_ARTIFACT_CONFIGURATION_KEY",
-				ModuleConfigurationKey:   "TEST_MODULE_CONFIGURATION_KEY",
-				DefaultArtifact:          "test-*",
-				InterestingFileDetector:  detector,
+				ConfigurationResolver: libpak.ConfigurationResolver{
+					Configurations: []libpak.BuildpackConfiguration{
+						{Name: "TEST_ARTIFACT_CONFIGURATION_KEY", Default: "test-*"},
+					},
+				},
+				ModuleConfigurationKey:  "TEST_MODULE_CONFIGURATION_KEY",
+				InterestingFileDetector: detector,
 			}
 		})
 
@@ -125,19 +130,54 @@ func testArtifactResolver(t *testing.T, context spec.G, it spec.S) {
 		})
 
 		context("$TEST_MODULE_CONFIGURATION_KEY", func() {
-				it.Before(func() {
-					Expect(os.Setenv("TEST_MODULE_CONFIGURATION_KEY", "test-directory")).To(Succeed())
-				})
+			it.Before(func() {
+				Expect(os.Setenv("TEST_MODULE_CONFIGURATION_KEY", "test-directory")).To(Succeed())
+			})
 
-				it.After(func() {
-					Expect(os.Unsetenv("TEST_MODULE_CONFIGURATION_KEY")).To(Succeed())
-				})
+			it.After(func() {
+				Expect(os.Unsetenv("TEST_MODULE_CONFIGURATION_KEY")).To(Succeed())
+			})
 
 			it("selects candidate from TEST_MODULE_CONFIGURATION_KEY", func() {
 				Expect(os.MkdirAll(filepath.Join(path, "test-directory"), 0755)).To(Succeed())
 				Expect(ioutil.WriteFile(filepath.Join(path, "test-directory", "test-file"), []byte{}, 0644)).To(Succeed())
 
 				Expect(resolver.Resolve(path)).To(Equal(filepath.Join(path, "test-directory", "test-file")))
+			})
+		})
+	})
+
+	context("ResolveArguments", func() {
+		var (
+			resolver libpak.ConfigurationResolver
+		)
+
+		it.Before(func() {
+			resolver = libpak.ConfigurationResolver{
+				Configurations: []libpak.BuildpackConfiguration{
+					{Name: "TEST_CONFIGURATION_KEY", Default: "test-argument-1 test-argument-2"},
+				},
+			}
+		})
+
+		it("uses default arguments", func() {
+			Expect(libbs.ResolveArguments("TEST_CONFIGURATION_KEY", resolver)).
+				To(Equal([]string{"test-argument-1", "test-argument-2"}))
+		})
+
+		context("$TEST_CONFIGURATION_KEY", func() {
+
+			it.Before(func() {
+				Expect(os.Setenv("TEST_CONFIGURATION_KEY", "test-argument-3 test-argument-4")).To(Succeed())
+			})
+
+			it.After(func() {
+				Expect(os.Unsetenv("TEST_CONFIGURATION_KEY")).To(Succeed())
+			})
+
+			it("parses value from $TEST_CONFIGURATION_KEY", func() {
+				Expect(libbs.ResolveArguments("TEST_CONFIGURATION_KEY", resolver)).
+					To(Equal([]string{"test-argument-3", "test-argument-4"}))
 			})
 		})
 	})

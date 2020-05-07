@@ -24,7 +24,7 @@ import (
 
 type Application struct {
 	ApplicationPath  string
-	ArgumentResolver ArgumentResolver
+	Arguments        []string
 	ArtifactResolver ArtifactResolver
 	Cache            Cache
 	Command          string
@@ -34,8 +34,8 @@ type Application struct {
 	Plan             *libcnb.BuildpackPlan
 }
 
-func NewApplication(applicationPath string, argumentResolver ArgumentResolver, artifactResolver ArtifactResolver,
-	cache Cache, command string, plan *libcnb.BuildpackPlan) (Application, error) {
+func NewApplication(applicationPath string, arguments []string, artifactResolver ArtifactResolver, cache Cache,
+	command string, plan *libcnb.BuildpackPlan) (Application, error) {
 
 	l, err := sherpa.NewFileListing(applicationPath)
 	if err != nil {
@@ -45,7 +45,7 @@ func NewApplication(applicationPath string, argumentResolver ArgumentResolver, a
 
 	return Application{
 		ApplicationPath:  applicationPath,
-		ArgumentResolver: argumentResolver,
+		Arguments:        arguments,
 		ArtifactResolver: artifactResolver,
 		Cache:            cache,
 		Command:          command,
@@ -59,15 +59,10 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 	a.LayerContributor.Logger = a.Logger
 
 	layer, err := a.LayerContributor.Contribute(layer, func() (libcnb.Layer, error) {
-		arguments, err := a.ArgumentResolver.Resolve()
-		if err != nil {
-			return libcnb.Layer{}, fmt.Errorf("unable to resolve arguments\n%w", err)
-		}
-
-		a.Logger.Bodyf("Executing %s %s", filepath.Base(a.Command), strings.Join(arguments, " "))
+		a.Logger.Bodyf("Executing %s %s", filepath.Base(a.Command), strings.Join(a.Arguments, " "))
 		if err := a.Executor.Execute(effect.Execution{
 			Command: a.Command,
-			Args:    arguments,
+			Args:    a.Arguments,
 			Dir:     a.ApplicationPath,
 			Stdout:  a.Logger.InfoWriter(),
 			Stderr:  a.Logger.InfoWriter(),

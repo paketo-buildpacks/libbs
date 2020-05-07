@@ -11,14 +11,13 @@ import (
 	"archive/zip"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/magiconair/properties"
-	"github.com/paketo-buildpacks/libpak/bard"
+	"github.com/mattn/go-shellwords"
+	"github.com/paketo-buildpacks/libpak"
 )
-
 //go:generate mockery -name InterestingFileDetector -case=underscore
 
 // InterestingFileDetector is an interface for types that determine whether a given file is interesting.
@@ -94,38 +93,23 @@ type ArtifactResolver struct {
 	// ArtifactConfigurationKey is the environment variable key to lookup for user configured artifacts.
 	ArtifactConfigurationKey string
 
+	// ConfigurationResolver is the configuration resolver to use.
+	ConfigurationResolver libpak.ConfigurationResolver
+
 	// ModuleConfigurationKey is the environment variable key to lookup for user configured modules.
 	ModuleConfigurationKey string
-
-	// DefaultArtifact is the default artifact pattern to use if the user has not configured any.
-	DefaultArtifact string
 
 	// InterestingFileDetector is used to determine if a file is a candidate for artifact resolution.
 	InterestingFileDetector InterestingFileDetector
 }
 
-// NewArtifactResolver creates a new instance, logging the user configuration keys and default values.  The instance
-// uses the AlwaysInterestingFileDetector.
-func NewArtifactResolver(artifactConfigurationKey string, moduleConfigurationKey string, defaultArtifact string, logger bard.Logger) ArtifactResolver {
-	logger.Body(bard.FormatUserConfig(moduleConfigurationKey, "the module to find application artifact in", "<ROOT>"))
-	logger.Body(bard.FormatUserConfig(artifactConfigurationKey, "the built application artifact", defaultArtifact))
-
-	return ArtifactResolver{
-		ArtifactConfigurationKey: artifactConfigurationKey,
-		ModuleConfigurationKey:   moduleConfigurationKey,
-		DefaultArtifact:          defaultArtifact,
-		InterestingFileDetector:  AlwaysInterestingFileDetector{},
-	}
-}
-
 // Resolve resolves the artifact that was created by the build system.
 func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
-	pattern := a.DefaultArtifact
-	if s, ok := os.LookupEnv(a.ModuleConfigurationKey); ok {
-		pattern = filepath.Join(s, pattern)
-	}
-	if s, ok := os.LookupEnv(a.ArtifactConfigurationKey); ok {
-		pattern = s
+	pattern, ok := a.ConfigurationResolver.Resolve(a.ArtifactConfigurationKey)
+	if !ok {
+		if s, ok := a.ConfigurationResolver.Resolve(a.ModuleConfigurationKey); ok {
+			pattern = filepath.Join(s, pattern)
+		}
 	}
 
 	file := filepath.Join(applicationPath, pattern)
@@ -154,3 +138,15 @@ func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 	sort.Strings(artifacts)
 	return "", fmt.Errorf("unable to find single built artifact in %s, candidates: %s", pattern, candidates)
 }
+
+// ResolveArguments resolves the arguments that should be passed to a build system.
+func ResolveArguments(configurationKey string, configurationResolver libpak.ConfigurationResolver) ([]string, error) {
+	s, _ := configurationResolver.Resolve(configurationKey)
+	w, err := shellwords.Parse(s)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse arguments from %s\n%w", s, err)
+	}
+
+	return w, nil
+}
+

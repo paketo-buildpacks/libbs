@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/paketo-buildpacks/libbs"
 	"github.com/paketo-buildpacks/libjvm"
+	"github.com/paketo-buildpacks/libpak"
 	"github.com/paketo-buildpacks/libpak/bard"
 	"github.com/paketo-buildpacks/libpak/effect"
 	"github.com/paketo-buildpacks/libpak/effect/mocks"
@@ -50,9 +51,12 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 
 		plan = &libcnb.BuildpackPlan{}
 
-		argumentResolver := libbs.ArgumentResolver{DefaultArguments: []string{"test-argument"}}
-		artifactResolver := libbs.ArtifactResolver{DefaultArtifact: "*"}
-		application, err = libbs.NewApplication(ctx.Application.Path, argumentResolver, artifactResolver, cache, "test-command", plan)
+		artifactResolver := libbs.ArtifactResolver{
+			ConfigurationResolver: libpak.ConfigurationResolver{
+				Configurations: []libpak.BuildpackConfiguration{{Default: "*"}},
+			},
+		}
+		application, err = libbs.NewApplication(ctx.Application.Path, []string{"test-argument"}, artifactResolver, cache, "test-command", plan)
 		Expect(err).NotTo(HaveOccurred())
 
 		executor = &mocks.Executor{}
