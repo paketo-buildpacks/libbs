@@ -50,7 +50,11 @@ func NewApplication(applicationPath string, arguments []string, artifactResolver
 	if err != nil {
 		return Application{}, fmt.Errorf("unable to create file listing for %s\n%w", applicationPath, err)
 	}
-	expected := map[string][]sherpa.FileEntry{"files": l}
+	expected := map[string]interface{}{
+		"files": l,
+		"arguments": arguments,
+		"artifact-pattern": artifactResolver.Pattern(),
+	}
 
 	return Application{
 		ApplicationPath:  applicationPath,

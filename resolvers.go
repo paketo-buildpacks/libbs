@@ -112,14 +112,21 @@ type ArtifactResolver struct {
 	InterestingFileDetector InterestingFileDetector
 }
 
+// Pattern returns the glob that ArtifactResolver will use for resolution.
+func (a *ArtifactResolver) Pattern() string {
+	pattern, ok := a.ConfigurationResolver.Resolve(a.ArtifactConfigurationKey)
+	if ok {
+		return pattern
+	}
+	if module, ok := a.ConfigurationResolver.Resolve(a.ModuleConfigurationKey); ok {
+		return filepath.Join(module, pattern)
+	}
+	return pattern
+}
+
 // Resolve resolves the artifact that was created by the build system.
 func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
-	pattern, ok := a.ConfigurationResolver.Resolve(a.ArtifactConfigurationKey)
-	if !ok {
-		if s, ok := a.ConfigurationResolver.Resolve(a.ModuleConfigurationKey); ok {
-			pattern = filepath.Join(s, pattern)
-		}
-	}
+	pattern := a.Pattern()
 
 	file := filepath.Join(applicationPath, pattern)
 	candidates, err := filepath.Glob(file)
