@@ -25,14 +25,16 @@ import (
 
 	"github.com/buildpacks/libcnb"
 	. "github.com/onsi/gomega"
-	"github.com/paketo-buildpacks/libbs"
 	"github.com/paketo-buildpacks/libjvm"
 	"github.com/paketo-buildpacks/libpak"
 	"github.com/paketo-buildpacks/libpak/bard"
 	"github.com/paketo-buildpacks/libpak/effect"
 	"github.com/paketo-buildpacks/libpak/effect/mocks"
+	"github.com/paketo-buildpacks/libpak/sherpa"
 	"github.com/sclevine/spec"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/paketo-buildpacks/libbs"
 )
 
 func testApplication(t *testing.T, context spec.G, it spec.S) {
@@ -49,7 +51,9 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 	it.Before(func() {
 		var err error
 
-		ctx.Application.Path, err = ioutil.TempDir("", "application-application")
+		tmpAppDir, err := ioutil.TempDir("", "application-application")
+		Expect(err).NotTo(HaveOccurred())
+		ctx.Application.Path, err = filepath.EvalSymlinks(tmpAppDir)
 		Expect(err).NotTo(HaveOccurred())
 
 		ctx.Layers.Path, err = ioutil.TempDir("", "application-layers")
@@ -65,17 +69,71 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 				Configurations: []libpak.BuildpackConfiguration{{Default: "*"}},
 			},
 		}
-		application, err = libbs.NewApplication(ctx.Application.Path, []string{"test-argument"}, artifactResolver, cache, "test-command", plan)
-		Expect(err).NotTo(HaveOccurred())
 
 		executor = &mocks.Executor{}
-		application.Executor = executor
+		executor.On("Execute", mock.Anything).Run(func(args mock.Arguments) {
+			execution := args.Get(0).(effect.Execution)
+			_, err := execution.Stdout.Write([]byte("javac some-version"))
+			Expect(err).NotTo(HaveOccurred())
+		}).Return(nil)
+
+		application = libbs.Application{
+			AdditionalMetadata: map[string]interface{}{"some-metadata-key": "some-metadata-value"},
+			ApplicationPath:    ctx.Application.Path,
+			Arguments:          []string{"test-argument"},
+			ArtifactResolver:   artifactResolver,
+			Cache:              cache,
+			Command:            "test-command",
+			Executor:           executor,
+			Logger:             bard.Logger{},
+			Plan:               plan,
+		}
 	})
 
 	it.After(func() {
 		Expect(os.RemoveAll(ctx.Application.Path)).To(Succeed())
 		Expect(os.RemoveAll(ctx.Layers.Path)).To(Succeed())
 		Expect(os.RemoveAll(cache.Path)).To(Succeed())
+	})
+
+	context("ExpectedMetadata", func() {
+		it("adds file list", func() {
+			appFilePath := filepath.Join(ctx.Application.Path, "some-file")
+			Expect(ioutil.WriteFile(
+				appFilePath,
+				[]byte("some-content"),
+				0777,
+			)).To(Succeed())
+			metadata, err := application.ExpectedMetadata()
+			Expect(err).NotTo(HaveOccurred())
+			fileEntries, ok := metadata["files"].([]sherpa.FileEntry)
+			Expect(ok).To(BeTrue())
+			Expect(fileEntries[0].Path).To(Equal(appFilePath))
+		})
+
+		it("adds args", func() {
+			metadata, err := application.ExpectedMetadata()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(metadata["arguments"]).To(Equal([]string{"test-argument"}))
+		})
+
+		it("adds artifact pattern", func() {
+			metadata, err := application.ExpectedMetadata()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(metadata["artifact-pattern"]).To(Equal("*"))
+		})
+
+		it("adds java version", func() {
+			metadata, err := application.ExpectedMetadata()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(metadata["java-version"]).To(Equal("some-version"))
+		})
+
+		it("accepts arbitrary metadata", func() {
+			metadata, err := application.ExpectedMetadata()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(metadata["some-metadata-key"]).To(Equal("some-metadata-value"))
+		})
 	})
 
 	it("contributes layer", func() {
@@ -100,7 +158,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 
 		Expect(layer.Cache).To(BeTrue())
 
-		e := executor.Calls[0].Arguments[0].(effect.Execution)
+		e := executor.Calls[1].Arguments[0].(effect.Execution)
 		Expect(e.Command).To(Equal("test-command"))
 		Expect(e.Args).To(Equal([]string{"test-argument"}))
 		Expect(e.Dir).To(Equal(ctx.Application.Path))
@@ -128,5 +186,4 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 			},
 		}))
 	})
-
 }
