@@ -27,6 +27,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/paketo-buildpacks/libpak"
 )
+
 //go:generate mockery -name InterestingFileDetector -case=underscore
 
 // InterestingFileDetector is an interface for types that determine whether a given file is interesting.
@@ -165,4 +166,3 @@ func ResolveArguments(configurationKey string, configurationResolver libpak.Conf
 
 	return w, nil
 }
-

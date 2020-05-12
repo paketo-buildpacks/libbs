@@ -17,6 +17,7 @@
 package libbs
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -50,10 +51,17 @@ func NewApplication(applicationPath string, arguments []string, artifactResolver
 	if err != nil {
 		return Application{}, fmt.Errorf("unable to create file listing for %s\n%w", applicationPath, err)
 	}
+	executor := effect.NewExecutor()
+	javaVersion, err := javaVersion(executor)
+	if err != nil {
+		return Application{}, fmt.Errorf("unable to determine java version\n%w", err)
+	}
+
 	expected := map[string]interface{}{
-		"files": l,
-		"arguments": arguments,
+		"files":            l,
+		"arguments":        arguments,
 		"artifact-pattern": artifactResolver.Pattern(),
+		"java-version":     javaVersion,
 	}
 
 	return Application{
@@ -62,10 +70,36 @@ func NewApplication(applicationPath string, arguments []string, artifactResolver
 		ArtifactResolver: artifactResolver,
 		Cache:            cache,
 		Command:          command,
-		Executor:         effect.NewExecutor(),
+		Executor:         executor,
 		LayerContributor: libpak.NewLayerContributor("Compiled Application", expected),
 		Plan:             plan,
 	}, nil
+}
+
+func javaVersion(executor effect.Executor) (string, error) {
+	buf := &bytes.Buffer{}
+	if err := executor.Execute(effect.Execution{
+		Command: "javac",
+		Args:    []string{"-version"},
+		Stdout:  buf,
+		Stderr:  buf,
+	}); err != nil {
+		return "", fmt.Errorf(
+			"error executing 'javac -version':\n Combined Output: %s: \n%w",
+			buf.String(),
+			err,
+		)
+	}
+
+	s := strings.Split(strings.TrimSpace(buf.String()), " ")
+	switch len(s) {
+	case 2:
+		return s[1], nil
+	case 1:
+		return s[0], nil
+	default:
+		return "unknown", nil
+	}
 }
 
 func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
