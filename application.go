@@ -128,7 +128,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 	layerContributor := &libpak.LayerContributor{
 		ExpectedMetadata: metadata,
 		Logger:           a.Logger,
-		Name:             "Compiled Applicaiton",
+		Name:             "Compiled Application",
 	}
 
 	layer, err = layerContributor.Contribute(layer, func() (libcnb.Layer, error) {
