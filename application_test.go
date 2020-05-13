@@ -25,6 +25,7 @@ import (
 
 	"github.com/buildpacks/libcnb"
 	. "github.com/onsi/gomega"
+	"github.com/paketo-buildpacks/libbs"
 	"github.com/paketo-buildpacks/libjvm"
 	"github.com/paketo-buildpacks/libpak"
 	"github.com/paketo-buildpacks/libpak/bard"
@@ -33,8 +34,6 @@ import (
 	"github.com/paketo-buildpacks/libpak/sherpa"
 	"github.com/sclevine/spec"
 	"github.com/stretchr/testify/mock"
-
-	"github.com/paketo-buildpacks/libbs"
 )
 
 func testApplication(t *testing.T, context spec.G, it spec.S) {
@@ -51,9 +50,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 	it.Before(func() {
 		var err error
 
-		tmpAppDir, err := ioutil.TempDir("", "application-application")
-		Expect(err).NotTo(HaveOccurred())
-		ctx.Application.Path, err = filepath.EvalSymlinks(tmpAppDir)
+		ctx.Application.Path, err = ioutil.TempDir("", "application-application")
 		Expect(err).NotTo(HaveOccurred())
 
 		ctx.Layers.Path, err = ioutil.TempDir("", "application-layers")
@@ -71,22 +68,17 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		}
 
 		executor = &mocks.Executor{}
-		executor.On("Execute", mock.Anything).Run(func(args mock.Arguments) {
-			execution := args.Get(0).(effect.Execution)
-			_, err := execution.Stdout.Write([]byte("javac some-version"))
-			Expect(err).NotTo(HaveOccurred())
-		}).Return(nil)
 
 		application = libbs.Application{
-			AdditionalMetadata: map[string]interface{}{"some-metadata-key": "some-metadata-value"},
-			ApplicationPath:    ctx.Application.Path,
-			Arguments:          []string{"test-argument"},
-			ArtifactResolver:   artifactResolver,
-			Cache:              cache,
-			Command:            "test-command",
-			Executor:           executor,
-			Logger:             bard.Logger{},
-			Plan:               plan,
+			ApplicationPath:  ctx.Application.Path,
+			Arguments:        []string{"test-argument"},
+			ArtifactResolver: artifactResolver,
+			Cache:            cache,
+			Command:          "test-command",
+			Executor:         executor,
+			LayerContributor: libpak.NewLayerContributor("test", map[string]interface{}{}),
+			Logger:           bard.Logger{},
+			Plan:             plan,
 		}
 	})
 
@@ -97,43 +89,54 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 	})
 
 	context("ExpectedMetadata", func() {
+
+		it.Before(func() {
+			executor.On("Execute", mock.Anything).Run(func(args mock.Arguments) {
+				execution := args.Get(0).(effect.Execution)
+				_, err := execution.Stdout.Write([]byte("javac some-version"))
+				Expect(err).NotTo(HaveOccurred())
+			}).Return(nil)
+		})
+
 		it("adds file list", func() {
-			appFilePath := filepath.Join(ctx.Application.Path, "some-file")
-			Expect(ioutil.WriteFile(
-				appFilePath,
-				[]byte("some-content"),
-				0777,
-			)).To(Succeed())
-			metadata, err := application.ExpectedMetadata()
+			file := filepath.Join(ctx.Application.Path, "some-file")
+			Expect(ioutil.WriteFile(file, []byte{}, 0644)).To(Succeed())
+
+			file, err := filepath.EvalSymlinks(file)
 			Expect(err).NotTo(HaveOccurred())
+
+			metadata, err := application.ExpectedMetadata(map[string]interface{}{})
+			Expect(err).NotTo(HaveOccurred())
+
 			fileEntries, ok := metadata["files"].([]sherpa.FileEntry)
 			Expect(ok).To(BeTrue())
-			Expect(fileEntries[0].Path).To(Equal(appFilePath))
+			Expect(fileEntries[0].Path).To(Equal(file))
 		})
 
 		it("adds args", func() {
-			metadata, err := application.ExpectedMetadata()
+			metadata, err := application.ExpectedMetadata(map[string]interface{}{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(metadata["arguments"]).To(Equal([]string{"test-argument"}))
 		})
 
 		it("adds artifact pattern", func() {
-			metadata, err := application.ExpectedMetadata()
+			metadata, err := application.ExpectedMetadata(map[string]interface{}{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(metadata["artifact-pattern"]).To(Equal("*"))
 		})
 
 		it("adds java version", func() {
-			metadata, err := application.ExpectedMetadata()
+			metadata, err := application.ExpectedMetadata(map[string]interface{}{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(metadata["java-version"]).To(Equal("some-version"))
 		})
 
 		it("accepts arbitrary metadata", func() {
-			metadata, err := application.ExpectedMetadata()
+			metadata, err := application.ExpectedMetadata(map[string]interface{}{"test-key": "test-value"})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(metadata["some-metadata-key"]).To(Equal("some-metadata-value"))
+			Expect(metadata["test-key"]).To(Equal("test-value"))
 		})
+
 	})
 
 	it("contributes layer", func() {
@@ -158,7 +161,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 
 		Expect(layer.Cache).To(BeTrue())
 
-		e := executor.Calls[1].Arguments[0].(effect.Execution)
+		e := executor.Calls[0].Arguments[0].(effect.Execution)
 		Expect(e.Command).To(Equal("test-command"))
 		Expect(e.Args).To(Equal([]string{"test-argument"}))
 		Expect(e.Dir).To(Equal(ctx.Application.Path))
@@ -186,4 +189,5 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 			},
 		}))
 	})
+
 }
