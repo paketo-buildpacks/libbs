@@ -25,7 +25,8 @@ import (
 
 func TestUnit(t *testing.T) {
 	suite := spec.New("libbs", spec.Report(report.Terminal{}))
-	suite("ApplicationResolver", testApplication)
+	suite("Factory", testFactory)
+	suite("Application", testApplication)
 	suite("Resolvers", testResolvers)
 	suite("Cache", testCache)
 	suite.Run(t)
