@@ -24,8 +24,9 @@ import (
 
 	"github.com/buildpacks/libcnb"
 	. "github.com/onsi/gomega"
-	"github.com/paketo-buildpacks/libbs"
 	"github.com/sclevine/spec"
+
+	"github.com/paketo-buildpacks/libbs"
 )
 
 func testCache(t *testing.T, context spec.G, it spec.S) {
