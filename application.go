@@ -85,6 +85,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 	if err != nil {
 		return libcnb.Layer{}, fmt.Errorf("unable to generate build dependencies\n%w", err)
 	}
+	entry.Metadata["layer"] = a.Cache.Name()
 	a.Plan.Entries = append(a.Plan.Entries, entry)
 
 	a.Logger.Header("Removing source code")

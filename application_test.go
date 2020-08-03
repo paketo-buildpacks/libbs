@@ -126,6 +126,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 				{
 					Name: "build-dependencies",
 					Metadata: map[string]interface{}{
+						"layer": "cache",
 						"dependencies": []libjvm.MavenJAR{
 							{
 								Name:    "test-file",
