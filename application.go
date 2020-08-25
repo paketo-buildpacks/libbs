@@ -74,9 +74,8 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 			return libcnb.Layer{}, fmt.Errorf("unable to copy %s to %s\n%w", artifact, file, err)
 		}
 
-		layer.Cache = true
 		return layer, nil
-	})
+	}, libpak.CacheLayer)
 	if err != nil {
 		return libcnb.Layer{}, fmt.Errorf("unable to contribute application layer\n%w", err)
 	}
