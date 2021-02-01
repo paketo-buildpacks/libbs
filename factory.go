@@ -32,7 +32,7 @@ func (f *ApplicationFactory) NewApplication(
 	artifactResolver ArtifactResolver,
 	cache Cache,
 	command string,
-	plan *libcnb.BuildpackPlan,
+	bom *libcnb.BOM,
 	applicationPath string,
 ) (Application, error) {
 
@@ -43,7 +43,7 @@ func (f *ApplicationFactory) NewApplication(
 		Cache:            cache,
 		Command:          command,
 		Executor:         f.Executor,
-		Plan:             plan,
+		BOM:              bom,
 	}
 
 	expected, err := f.expectedMetadata(additionalMetadata, app)
@@ -51,7 +51,9 @@ func (f *ApplicationFactory) NewApplication(
 		return Application{}, fmt.Errorf("failed to generate expected metadata\n%w", err)
 	}
 
-	app.LayerContributor = libpak.NewLayerContributor("Compiled Application", expected)
+	app.LayerContributor = libpak.NewLayerContributor("Compiled Application", expected, libcnb.LayerTypes{
+		Cache: true,
+	})
 
 	return app, nil
 }

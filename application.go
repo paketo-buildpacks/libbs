@@ -40,7 +40,7 @@ type Application struct {
 	Executor         effect.Executor
 	LayerContributor libpak.LayerContributor
 	Logger           bard.Logger
-	Plan             *libcnb.BuildpackPlan
+	BOM              *libcnb.BOM
 }
 
 func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
@@ -75,17 +75,17 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 		}
 
 		return layer, nil
-	}, libpak.CacheLayer)
+	})
 	if err != nil {
 		return libcnb.Layer{}, fmt.Errorf("unable to contribute application layer\n%w", err)
 	}
 
-	entry, err := a.Cache.AsBuildpackPlanEntry()
+	entry, err := a.Cache.AsBOMEntry()
 	if err != nil {
 		return libcnb.Layer{}, fmt.Errorf("unable to generate build dependencies\n%w", err)
 	}
 	entry.Metadata["layer"] = a.Cache.Name()
-	a.Plan.Entries = append(a.Plan.Entries, entry)
+	a.BOM.Entries = append(a.BOM.Entries, entry)
 
 	a.Logger.Header("Removing source code")
 	cs, err := ioutil.ReadDir(a.ApplicationPath)
