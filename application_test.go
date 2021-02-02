@@ -44,7 +44,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		ctx         libcnb.BuildContext
 		application libbs.Application
 		executor    *mocks.Executor
-		plan        *libcnb.BuildpackPlan
+		bom         *libcnb.BOM
 	)
 
 	it.Before(func() {
@@ -59,7 +59,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		cache.Path, err = ioutil.TempDir("", "application-cache")
 		Expect(err).NotTo(HaveOccurred())
 
-		plan = &libcnb.BuildpackPlan{}
+		bom = &libcnb.BOM{}
 
 		artifactResolver := libbs.ArtifactResolver{
 			ConfigurationResolver: libpak.ConfigurationResolver{
@@ -76,9 +76,13 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 			Cache:            cache,
 			Command:          "test-command",
 			Executor:         executor,
-			LayerContributor: libpak.NewLayerContributor("test", map[string]interface{}{}),
-			Logger:           bard.Logger{},
-			Plan:             plan,
+			LayerContributor: libpak.NewLayerContributor(
+				"test",
+				map[string]interface{}{},
+				libcnb.LayerTypes{Cache: true},
+			),
+			Logger: bard.Logger{},
+			BOM:    bom,
 		}
 	})
 
@@ -121,18 +125,17 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		Expect(filepath.Join(ctx.Application.Path, "stub-application.jar")).NotTo(BeAnExistingFile())
 		Expect(filepath.Join(ctx.Application.Path, "fixture-marker")).To(BeARegularFile())
 
-		Expect(plan).To(Equal(&libcnb.BuildpackPlan{
-			Entries: []libcnb.BuildpackPlanEntry{
-				{
-					Name: "build-dependencies",
-					Metadata: map[string]interface{}{
-						"layer": "cache",
-						"dependencies": []libjvm.MavenJAR{
-							{
-								Name:    "test-file",
-								Version: "1.1.1",
-								SHA256:  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-							},
+		Expect(bom.Entries).To(Equal([]libcnb.BOMEntry{
+			{
+				Name:  "build-dependencies",
+				Build: true,
+				Metadata: map[string]interface{}{
+					"layer": "cache",
+					"dependencies": []libjvm.MavenJAR{
+						{
+							Name:    "test-file",
+							Version: "1.1.1",
+							SHA256:  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 						},
 					},
 				},

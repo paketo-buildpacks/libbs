@@ -53,15 +53,16 @@ func (c Cache) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 	return layer, nil
 }
 
-func (c *Cache) AsBuildpackPlanEntry() (libcnb.BuildpackPlanEntry, error) {
+func (c *Cache) AsBOMEntry() (libcnb.BOMEntry, error) {
 	d, err := libjvm.NewMavenJARListing(c.Path)
 	if err != nil {
-		return libcnb.BuildpackPlanEntry{}, fmt.Errorf("unable to generate dependencies from %s\n%w", c.Path, err)
+		return libcnb.BOMEntry{}, fmt.Errorf("unable to generate dependencies from %s\n%w", c.Path, err)
 	}
 
-	return libcnb.BuildpackPlanEntry{
+	return libcnb.BOMEntry{
 		Name:     "build-dependencies",
 		Metadata: map[string]interface{}{"dependencies": d},
+		Build:    true,
 	}, nil
 }
 
