@@ -3,7 +3,7 @@ module github.com/paketo-buildpacks/libbs
 go 1.15
 
 require (
-	github.com/buildpacks/libcnb v1.19.0
+	github.com/buildpacks/libcnb v1.20.0
 	github.com/magiconair/properties v1.8.5
 	github.com/mattn/go-shellwords v1.0.11
 	github.com/onsi/gomega v1.11.0
