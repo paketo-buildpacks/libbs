@@ -111,6 +111,9 @@ type ArtifactResolver struct {
 
 	// InterestingFileDetector is used to determine if a file is a candidate for artifact resolution.
 	InterestingFileDetector InterestingFileDetector
+
+	// AdditionalHelpMessage can be used to supply context specific instructions if no matching artifact is found
+	AdditionalHelpMessage string
 }
 
 // Pattern returns the glob that ArtifactResolver will use for resolution.
@@ -153,7 +156,11 @@ func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 	}
 
 	sort.Strings(artifacts)
-	return "", fmt.Errorf("unable to find single built artifact in %s, candidates: %s", pattern, candidates)
+	helpMsg := fmt.Sprintf("unable to find single built artifact in %s, candidates: %s", pattern, candidates)
+	if len(a.AdditionalHelpMessage) > 0 {
+		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
+	}
+	return "", fmt.Errorf(helpMsg)
 }
 
 // ResolveArguments resolves the arguments that should be passed to a build system.

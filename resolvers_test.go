@@ -123,6 +123,19 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 				filepath.Join(path, "test-file-1"), filepath.Join(path, "test-file-2"))))
 		})
 
+		it("fails with multiple candidates and provides extra help", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file-1"), []byte{}, 0644)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file-2"), []byte{}, 0644)).To(Succeed())
+			detector.On("Interesting", mock.Anything).Return(true, nil)
+
+			resolver.AdditionalHelpMessage = "Some more help."
+
+			_, err := resolver.Resolve(path)
+
+			Expect(err).To(MatchError(fmt.Sprintf("unable to find single built artifact in test-*, candidates: [%s %s]. Some more help.",
+				filepath.Join(path, "test-file-1"), filepath.Join(path, "test-file-2"))))
+		})
+
 		context("$TEST_ARTIFACT_CONFIGURATION_KEY", func() {
 			it.Before(func() {
 				Expect(os.Setenv("TEST_ARTIFACT_CONFIGURATION_KEY", "another-file")).To(Succeed())
