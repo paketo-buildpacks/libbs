@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/paketo-buildpacks/libpak/sbom"
+
 	"github.com/buildpacks/libcnb"
 	"github.com/paketo-buildpacks/libpak"
 	"github.com/paketo-buildpacks/libpak/effect"
@@ -34,6 +36,8 @@ func (f *ApplicationFactory) NewApplication(
 	command string,
 	bom *libcnb.BOM,
 	applicationPath string,
+	bomScanner sbom.SBOMScanner,
+	buildpackAPI string,
 ) (Application, error) {
 
 	app := Application{
@@ -44,6 +48,8 @@ func (f *ApplicationFactory) NewApplication(
 		Command:          command,
 		Executor:         f.Executor,
 		BOM:              bom,
+		SBOMScanner:      bomScanner,
+		BuildpackAPI:     buildpackAPI,
 	}
 
 	expected, err := f.expectedMetadata(additionalMetadata, app)

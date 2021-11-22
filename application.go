@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/paketo-buildpacks/libpak/sbom"
+
 	"github.com/buildpacks/libcnb"
 	"github.com/paketo-buildpacks/libpak"
 	"github.com/paketo-buildpacks/libpak/bard"
@@ -41,6 +43,8 @@ type Application struct {
 	LayerContributor libpak.LayerContributor
 	Logger           bard.Logger
 	BOM              *libcnb.BOM
+	SBOMScanner      sbom.SBOMScanner
+	BuildpackAPI     string
 }
 
 func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
@@ -52,8 +56,8 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 			Command: a.Command,
 			Args:    a.Arguments,
 			Dir:     a.ApplicationPath,
-			Stdout:  a.Logger.InfoWriter(),
-			Stderr:  a.Logger.InfoWriter(),
+			Stdout:  bard.NewWriter(a.Logger.Logger.InfoWriter(), bard.WithIndent(3)),
+			Stderr:  bard.NewWriter(a.Logger.Logger.InfoWriter(), bard.WithIndent(3)),
 		}); err != nil {
 			return libcnb.Layer{}, fmt.Errorf("error running build\n%w", err)
 		}
@@ -73,19 +77,24 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 		if err := sherpa.CopyFile(in, file); err != nil {
 			return libcnb.Layer{}, fmt.Errorf("unable to copy %s to %s\n%w", artifact, file, err)
 		}
-
 		return layer, nil
 	})
 	if err != nil {
 		return libcnb.Layer{}, fmt.Errorf("unable to contribute application layer\n%w", err)
 	}
 
-	entry, err := a.Cache.AsBOMEntry()
-	if err != nil {
-		return libcnb.Layer{}, fmt.Errorf("unable to generate build dependencies\n%w", err)
+	if err := a.SBOMScanner.ScanBuild(a.ApplicationPath, libcnb.CycloneDXJSON, libcnb.SyftJSON); err != nil {
+		return libcnb.Layer{}, fmt.Errorf("unable to create Build SBoM \n%w", err)
 	}
-	entry.Metadata["layer"] = a.Cache.Name()
-	a.BOM.Entries = append(a.BOM.Entries, entry)
+
+	if a.BuildpackAPI == "0.6" || a.BuildpackAPI == "0.5" || a.BuildpackAPI == "0.4" || a.BuildpackAPI == "0.3" || a.BuildpackAPI == "0.2" || a.BuildpackAPI == "0.1" {
+		entry, err := a.Cache.AsBOMEntry()
+		if err != nil {
+			return libcnb.Layer{}, fmt.Errorf("unable to generate build dependencies\n%w", err)
+		}
+		entry.Metadata["layer"] = a.Cache.Name()
+		a.BOM.Entries = append(a.BOM.Entries, entry)
+	}
 
 	a.Logger.Header("Removing source code")
 	cs, err := ioutil.ReadDir(a.ApplicationPath)

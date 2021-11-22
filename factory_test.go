@@ -22,6 +22,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/paketo-buildpacks/libpak/sbom"
+
+	"github.com/buildpacks/libcnb"
+	"github.com/paketo-buildpacks/libpak/bard"
+
 	. "github.com/onsi/gomega"
 	"github.com/paketo-buildpacks/libpak"
 	"github.com/paketo-buildpacks/libpak/effect"
@@ -80,6 +85,9 @@ func testFactory(t *testing.T, context spec.G, it spec.S) {
 					Configurations: []libpak.BuildpackConfiguration{{Default: "*"}},
 				},
 			}
+			bomScanner := sbom.NewSyftCLISBOMScanner(libcnb.Layers{}, executor, bard.Logger{})
+			buildpackAPI := "0.7"
+
 			application, err = applicationFactory.NewApplication(
 				map[string]interface{}{"addl-key": "addl-value"},
 				[]string{"test-argument"},
@@ -88,6 +96,8 @@ func testFactory(t *testing.T, context spec.G, it spec.S) {
 				"",
 				nil,
 				appDir,
+				bomScanner,
+				buildpackAPI,
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
