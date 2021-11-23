@@ -25,11 +25,11 @@ import (
 
 	"github.com/buildpacks/libcnb"
 	. "github.com/onsi/gomega"
-	"github.com/paketo-buildpacks/libjvm"
 	"github.com/paketo-buildpacks/libpak"
 	"github.com/paketo-buildpacks/libpak/bard"
 	"github.com/paketo-buildpacks/libpak/effect"
 	"github.com/paketo-buildpacks/libpak/effect/mocks"
+	sbomMocks "github.com/paketo-buildpacks/libpak/sbom/mocks"
 	"github.com/sclevine/spec"
 	"github.com/stretchr/testify/mock"
 
@@ -45,6 +45,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		application libbs.Application
 		executor    *mocks.Executor
 		bom         *libcnb.BOM
+		sbomScanner *sbomMocks.SBOMScanner
 	)
 
 	it.Before(func() {
@@ -68,6 +69,8 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		}
 
 		executor = &mocks.Executor{}
+		sbomScanner = &sbomMocks.SBOMScanner{}
+		sbomScanner.On("ScanBuild", ctx.Application.Path, libcnb.CycloneDXJSON, libcnb.SyftJSON).Return(nil)
 
 		application = libbs.Application{
 			ApplicationPath:  ctx.Application.Path,
@@ -81,8 +84,10 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 				map[string]interface{}{},
 				libcnb.LayerTypes{Cache: true},
 			),
-			Logger: bard.Logger{},
-			BOM:    bom,
+			Logger:       bard.Logger{},
+			BOM:          bom,
+			SBOMScanner:  sbomScanner,
+			BuildpackAPI: ctx.Buildpack.API,
 		}
 	})
 
@@ -110,6 +115,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		Expect(err).NotTo(HaveOccurred())
 
 		layer, err = application.Contribute(layer)
+
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(layer.Cache).To(BeTrue())
@@ -125,22 +131,8 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		Expect(filepath.Join(ctx.Application.Path, "stub-application.jar")).NotTo(BeAnExistingFile())
 		Expect(filepath.Join(ctx.Application.Path, "fixture-marker")).To(BeARegularFile())
 
-		Expect(bom.Entries).To(Equal([]libcnb.BOMEntry{
-			{
-				Name:  "build-dependencies",
-				Build: true,
-				Metadata: map[string]interface{}{
-					"layer": "cache",
-					"dependencies": []libjvm.MavenJAR{
-						{
-							Name:    "test-file",
-							Version: "1.1.1",
-							SHA256:  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-						},
-					},
-				},
-			},
-		}))
+		sbomScanner.AssertCalled(t, "ScanBuild", ctx.Application.Path, libcnb.CycloneDXJSON, libcnb.SyftJSON)
+		Expect(bom.Entries).To(HaveLen(0))
 	})
 
 }
