@@ -1,5 +1,5 @@
 # `github.com/paketo-buildpacks/libbs`
-`libs` is a Go library that forms the basis for building the different Paketo-style build system-providing buildpacks.
+`libbs` is a Go library that forms the basis for building the different Paketo-style build system-providing buildpacks.
 
 ## Usage
 ```
