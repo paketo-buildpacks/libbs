@@ -20,6 +20,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -131,7 +132,6 @@ func (a *ArtifactResolver) Pattern() string {
 // Resolve resolves the artifact that was created by the build system.
 func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 	pattern := a.Pattern()
-
 	file := filepath.Join(applicationPath, pattern)
 	candidates, err := filepath.Glob(file)
 	if err != nil {
@@ -163,6 +163,30 @@ func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 	return "", fmt.Errorf(helpMsg)
 }
 
+func (a *ArtifactResolver) ResolveMultipleArtifacts(applicationPath string) ([]string, error) {
+	pattern := a.Pattern()
+	file := filepath.Join(applicationPath, pattern)
+	candidates, err := filepath.Glob(file)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find files with %s\n%w", pattern, err)
+	}
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("unable to find any artifact to resolve\n")
+	}
+	if len(candidates) == 1 {
+		// Double check it is a directory
+		fileInfo, err := os.Stat(candidates[0])
+		if err != nil {
+			return nil, err
+		}
+		if !fileInfo.IsDir() {
+			return nil, fmt.Errorf("multiple artifacts resolver expecting a directory but received a file %s\n",
+				fileInfo.Name())
+		}
+	}
+	return candidates, nil
+}
+
 // ResolveArguments resolves the arguments that should be passed to a build system.
 func ResolveArguments(configurationKey string, configurationResolver libpak.ConfigurationResolver) ([]string, error) {
 	s, _ := configurationResolver.Resolve(configurationKey)
@@ -172,4 +196,21 @@ func ResolveArguments(configurationKey string, configurationResolver libpak.Conf
 	}
 
 	return w, nil
+}
+
+// singleArtifact evaluates if the Pattern() expression points to a single file artifact
+func (a *ArtifactResolver) singleArtifact(applicationPath string) (bool, error) {
+	file := filepath.Join(applicationPath, a.Pattern())
+	candidates, err := filepath.Glob(file)
+	if err != nil {
+		return false, err
+	}
+	if len(candidates) == 1 {
+		f, err := os.Stat(candidates[0])
+		if err != nil {
+			return false, err
+		}
+		return !f.IsDir(), nil
+	}
+	return false, nil
 }
