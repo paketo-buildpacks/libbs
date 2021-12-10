@@ -135,4 +135,92 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		Expect(bom.Entries).To(HaveLen(0))
 	})
 
+	context("contributes layer with ", func() {
+		context("folder with ", func() {
+			it.Before(func() {
+				artifactResolver := libbs.ArtifactResolver{
+					ConfigurationResolver: libpak.ConfigurationResolver{
+						Configurations: []libpak.BuildpackConfiguration{{Default: "target/native-sources"}},
+					},
+				}
+				application.ArtifactResolver = artifactResolver
+			})
+
+			it("multiple files", func() {
+
+				folder := filepath.Join(ctx.Application.Path, "target", "native-sources")
+				os.MkdirAll(folder, os.ModePerm)
+
+				files := []string{"stub-application.jar", "stub-executable.jar"}
+				for _, file := range files {
+					in, err := os.Open(filepath.Join("testdata", file))
+					Expect(err).NotTo(HaveOccurred())
+					out, err := os.OpenFile(filepath.Join(folder, file), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+					Expect(err).NotTo(HaveOccurred())
+					_, err = io.Copy(out, in)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(in.Close()).To(Succeed())
+					Expect(out.Close()).To(Succeed())
+				}
+				application.Logger = bard.NewLogger(ioutil.Discard)
+				executor.On("Execute", mock.Anything).Return(nil)
+
+				layer, err := ctx.Layers.Layer("test-layer")
+				Expect(err).NotTo(HaveOccurred())
+
+				layer, err = application.Contribute(layer)
+
+				Expect(err).NotTo(HaveOccurred())
+
+				e := executor.Calls[0].Arguments[0].(effect.Execution)
+				Expect(e.Command).To(Equal("test-command"))
+				Expect(e.Args).To(Equal([]string{"test-argument"}))
+				Expect(e.Dir).To(Equal(ctx.Application.Path))
+				Expect(e.Stdout).NotTo(BeNil())
+				Expect(e.Stderr).NotTo(BeNil())
+
+				Expect(filepath.Join(layer.Path, "application.zip")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(ctx.Application.Path, "stub-application.jar")).To(BeAnExistingFile())
+				Expect(filepath.Join(ctx.Application.Path, "stub-executable.jar")).To(BeAnExistingFile())
+
+			})
+		})
+
+		context("multiple files", func() {
+			it("", func() {
+				files := []string{"stub-application.jar", "stub-executable.jar"}
+				for _, file := range files {
+					in, err := os.Open(filepath.Join("testdata", file))
+					Expect(err).NotTo(HaveOccurred())
+					out, err := os.OpenFile(filepath.Join(ctx.Application.Path, file), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+					Expect(err).NotTo(HaveOccurred())
+					_, err = io.Copy(out, in)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(in.Close()).To(Succeed())
+					Expect(out.Close()).To(Succeed())
+				}
+				application.Logger = bard.NewLogger(ioutil.Discard)
+				executor.On("Execute", mock.Anything).Return(nil)
+
+				layer, err := ctx.Layers.Layer("test-layer")
+				Expect(err).NotTo(HaveOccurred())
+
+				layer, err = application.Contribute(layer)
+
+				Expect(err).NotTo(HaveOccurred())
+
+				e := executor.Calls[0].Arguments[0].(effect.Execution)
+				Expect(e.Command).To(Equal("test-command"))
+				Expect(e.Args).To(Equal([]string{"test-argument"}))
+				Expect(e.Dir).To(Equal(ctx.Application.Path))
+				Expect(e.Stdout).NotTo(BeNil())
+				Expect(e.Stderr).NotTo(BeNil())
+
+				Expect(filepath.Join(layer.Path, "application.zip")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(ctx.Application.Path, "stub-application.jar")).To(BeAnExistingFile())
+				Expect(filepath.Join(ctx.Application.Path, "stub-executable.jar")).To(BeAnExistingFile())
+
+			})
+		})
+	})
 }

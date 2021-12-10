@@ -60,7 +60,7 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 		})
 	})
 
-	context("ArtifactResolver", func() {
+	context("Resolve", func() {
 		var (
 			detector *mocks.InterestingFileDetector
 			path     string
@@ -202,6 +202,65 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 				Expect(libbs.ResolveArguments("TEST_CONFIGURATION_KEY", resolver)).
 					To(Equal([]string{"test-argument-3", "test-argument-4"}))
 			})
+		})
+	})
+
+	context("ResolveMultipleArtifacts", func() {
+		var (
+			detector *mocks.InterestingFileDetector
+			path     string
+			resolver libbs.ArtifactResolver
+		)
+
+		it.Before(func() {
+			var err error
+
+			detector = &mocks.InterestingFileDetector{}
+
+			path, err = ioutil.TempDir("", "multiple-artifact-resolver")
+			Expect(err).NotTo(HaveOccurred())
+
+			resolver = libbs.ArtifactResolver{
+				ArtifactConfigurationKey: "TEST_ARTIFACT_CONFIGURATION_KEY",
+				ConfigurationResolver: libpak.ConfigurationResolver{
+					Configurations: []libpak.BuildpackConfiguration{
+						{Name: "TEST_ARTIFACT_CONFIGURATION_KEY", Default: "test-*"},
+					},
+				},
+				ModuleConfigurationKey:  "TEST_MODULE_CONFIGURATION_KEY",
+				InterestingFileDetector: detector,
+			}
+		})
+
+		it.After(func() {
+			Expect(os.RemoveAll(path)).To(Succeed())
+		})
+
+		it("fails with a single candidate", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file"), []byte{}, 0644)).To(Succeed())
+
+			_, err := resolver.ResolveMultipleArtifacts(path)
+
+			Expect(err).To(MatchError(fmt.Sprintf("multiple artifacts resolver expecting a directory but received a file %s\n",
+				"test-file")))
+
+		})
+		it("passes with multiple candidates", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file"), []byte{}, 0644)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file-1"), []byte{}, 0644)).To(Succeed())
+
+			Expect(resolver.ResolveMultipleArtifacts(path)).To(ContainElements(filepath.Join(path, "test-file"), filepath.Join(path, "test-file-1")))
+		})
+
+		it("passes with a single folder candidate", func() {
+			Expect(os.Mkdir(filepath.Join(path, "test-folder"), os.ModePerm)).To(Succeed())
+			Expect(resolver.ResolveMultipleArtifacts(path)).To(ContainElement(filepath.Join(path, "test-folder")))
+		})
+		
+		it("fails with zero candidates", func() {
+			_, err := resolver.ResolveMultipleArtifacts(path)
+
+			Expect(err).To(MatchError("unable to find any artifact to resolve\n"))
 		})
 	})
 }
