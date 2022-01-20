@@ -79,7 +79,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 			}
 
 			if fileInfo.IsDir() {
-				if err := copyDirectory(artifact, layer.Path); err != nil {
+				if err := copyDirectory(artifact, filepath.Join(layer.Path, filepath.Base(artifact))); err != nil {
 					return libcnb.Layer{}, fmt.Errorf("unable to copy the directory\n%w", err)
 				}
 			} else {
@@ -96,7 +96,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 				}
 
 				if fileInfo.IsDir() {
-					if err := copyDirectory(artifact, layer.Path); err != nil {
+					if err := copyDirectory(artifact, filepath.Join(layer.Path, filepath.Base(artifact))); err != nil {
 						return libcnb.Layer{}, fmt.Errorf("unable to copy a directory\n%w", err)
 					}
 				} else {

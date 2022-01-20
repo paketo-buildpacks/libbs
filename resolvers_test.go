@@ -259,6 +259,12 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 			Expect(resolver.ResolveMany(path)).To(ContainElements(filepath.Join(path, "test-folder-1"), filepath.Join(path, "test-folder-2")))
 		})
 
+		it("passes with a file and a folder", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file"), []byte{}, 0644)).To(Succeed())
+			Expect(os.Mkdir(filepath.Join(path, "test-folder-1"), os.ModePerm)).To(Succeed())
+			Expect(resolver.ResolveMany(path)).To(ContainElements(filepath.Join(path, "test-file"), filepath.Join(path, "test-folder-1")))
+		})
+
 		it("fails with zero candidates", func() {
 			_, err := resolver.ResolveMany(path)
 
