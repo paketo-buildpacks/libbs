@@ -163,28 +163,35 @@ func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 	return "", fmt.Errorf(helpMsg)
 }
 
-func (a *ArtifactResolver) ResolveMultipleArtifacts(applicationPath string) ([]string, error) {
+func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error) {
 	pattern := a.Pattern()
 	file := filepath.Join(applicationPath, pattern)
 	candidates, err := filepath.Glob(file)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find files with %s\n%w", pattern, err)
+		return []string{}, fmt.Errorf("unable to find files with %s\n%w", pattern, err)
 	}
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("unable to find any artifact to resolve\n")
+
+	if len(candidates) > 0 {
+		return candidates, nil
 	}
-	if len(candidates) == 1 {
-		// Double check it is a directory
-		fileInfo, err := os.Stat(candidates[0])
-		if err != nil {
-			return nil, err
-		}
-		if !fileInfo.IsDir() {
-			return nil, fmt.Errorf("multiple artifacts resolver expecting a directory but received a file %s\n",
-				fileInfo.Name())
-		}
+
+	entries, err := os.ReadDir(filepath.Dir(pattern))
+	if err != nil && os.IsNotExist(err) {
+		return []string{}, fmt.Errorf("unable to find directory referened by pattern: %s", pattern)
+	} else if err != nil {
+		return []string{}, fmt.Errorf("unable to read directory\n%w", err)
 	}
-	return candidates, nil
+
+	contents := []string{}
+	for _, entry := range entries {
+		contents = append(contents, entry.Name())
+	}
+
+	helpMsg := fmt.Sprintf("unable to find any built artifacts in %s, directory contains: %s", pattern, contents)
+	if len(a.AdditionalHelpMessage) > 0 {
+		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
+	}
+	return []string{}, fmt.Errorf(helpMsg)
 }
 
 // ResolveArguments resolves the arguments that should be passed to a build system.
@@ -196,21 +203,4 @@ func ResolveArguments(configurationKey string, configurationResolver libpak.Conf
 	}
 
 	return w, nil
-}
-
-// singleArtifact evaluates if the Pattern() expression points to a single file artifact
-func (a *ArtifactResolver) singleArtifact(applicationPath string) (bool, error) {
-	file := filepath.Join(applicationPath, a.Pattern())
-	candidates, err := filepath.Glob(file)
-	if err != nil {
-		return false, err
-	}
-	if len(candidates) == 1 {
-		f, err := os.Stat(candidates[0])
-		if err != nil {
-			return false, err
-		}
-		return !f.IsDir(), nil
-	}
-	return false, nil
 }

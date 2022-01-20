@@ -51,6 +51,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 	a.LayerContributor.Logger = a.Logger
 
 	layer, err := a.LayerContributor.Contribute(layer, func() (libcnb.Layer, error) {
+		// Build
 		a.Logger.Bodyf("Executing %s %s", filepath.Base(a.Command), strings.Join(a.Arguments, " "))
 		if err := a.Executor.Execute(effect.Execution{
 			Command: a.Command,
@@ -62,49 +63,58 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 			return libcnb.Layer{}, fmt.Errorf("error running build\n%w", err)
 		}
 
-		if ok, err := a.ArtifactResolver.singleArtifact(a.ApplicationPath); ok {
+		// Persist Artifacts
+		artifacts, err := a.ArtifactResolver.ResolveMany(a.ApplicationPath)
+		if err != nil {
+			return libcnb.Layer{}, fmt.Errorf("unable to resolve artifacts\n%w", err)
+		}
+		a.Logger.Debugf("Found artifacts: %s", artifacts)
+
+		if len(artifacts) == 1 {
+			artifact := artifacts[0]
+
+			fileInfo, err := os.Stat(artifact)
 			if err != nil {
-				return libcnb.Layer{}, fmt.Errorf("unable to resolve artifact\n%w", err)
+				return libcnb.Layer{}, fmt.Errorf("unable to resolve artifact %s\n%w", artifact, err)
 			}
-			artifact, err := a.ArtifactResolver.Resolve(a.ApplicationPath)
-			if err != nil {
-				return libcnb.Layer{}, fmt.Errorf("unable to resolve artifact\n%w", err)
-			}
-			file := filepath.Join(layer.Path, "application.zip")
-			if err := copyFile(artifact, file); err != nil {
-				return libcnb.Layer{}, fmt.Errorf("unable to copy %s to %s\n%w", artifact, file, err)
+
+			if fileInfo.IsDir() {
+				if err := copyDirectory(artifact, layer.Path); err != nil {
+					return libcnb.Layer{}, fmt.Errorf("unable to copy the directory\n%w", err)
+				}
+			} else {
+				file := filepath.Join(layer.Path, "application.zip")
+				if err := copyFile(artifact, file); err != nil {
+					return libcnb.Layer{}, fmt.Errorf("unable to copy the file %s to %s\n%w", artifact, file, err)
+				}
 			}
 		} else {
-			a.Logger.Infof("After evaluating pattern %s, multiples artifacts were detected", a.ArtifactResolver.Pattern())
-			artifacts, err := a.ArtifactResolver.ResolveMultipleArtifacts(a.ApplicationPath)
-			if err != nil {
-				return libcnb.Layer{}, fmt.Errorf("unable to resolve multiple artifacts\n%w", err)
-			}
 			for _, artifact := range artifacts {
 				fileInfo, err := os.Stat(artifact)
 				if err != nil {
 					return libcnb.Layer{}, fmt.Errorf("unable to resolve artifact %s\n%w", artifact, err)
 				}
-				if  fileInfo.IsDir() {
-					// It matches a folder or multiple folders (take everything in the folder, then multi-file behavior)
+
+				if fileInfo.IsDir() {
 					if err := copyDirectory(artifact, layer.Path); err != nil {
-						return libcnb.Layer{}, fmt.Errorf("unable to resolve multiple artifacts\n%w", err)
+						return libcnb.Layer{}, fmt.Errorf("unable to copy a directory\n%w", err)
 					}
 				} else {
-					// It matches multiple files (multi-file behavior)
 					dest := filepath.Join(layer.Path, fileInfo.Name())
 					if err := copyFile(artifact, dest); err != nil {
-						return libcnb.Layer{}, fmt.Errorf("unable to resolve multiple artifacts\n%w", err)
+						return libcnb.Layer{}, fmt.Errorf("unable to copy a file %s to %s\n%w", artifact, dest, err)
 					}
 				}
 			}
 		}
+
 		return layer, nil
 	})
 	if err != nil {
 		return libcnb.Layer{}, fmt.Errorf("unable to contribute application layer\n%w", err)
 	}
 
+	// Create SBOM
 	if err := a.SBOMScanner.ScanBuild(a.ApplicationPath, libcnb.CycloneDXJSON, libcnb.SyftJSON); err != nil {
 		return libcnb.Layer{}, fmt.Errorf("unable to create Build SBoM \n%w", err)
 	}
@@ -118,6 +128,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 		a.BOM.Entries = append(a.BOM.Entries, entry)
 	}
 
+	// Purge Workspace
 	a.Logger.Header("Removing source code")
 	cs, err := ioutil.ReadDir(a.ApplicationPath)
 	if err != nil {
@@ -130,6 +141,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 		}
 	}
 
+	// Restore compiled artifacts
 	file := filepath.Join(layer.Path, "application.zip")
 	if _, err := os.Stat(file); err == nil {
 		in, err := os.Open(file)
@@ -141,16 +153,14 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 		if err := crush.ExtractZip(in, a.ApplicationPath, 0); err != nil {
 			return libcnb.Layer{}, fmt.Errorf("unable to extract %s\n%w", file, err)
 		}
-	} else {
-		if os.IsNotExist(err) {
-			a.Logger.Infof("Restoring multiple artifacts")
-			err := copyDirectory(layer.Path, a.ApplicationPath)
-			if err != nil {
-				return libcnb.Layer{}, fmt.Errorf("unable to restore multiple artifacts\n%w", err)
-			}
-		} else {
-			return libcnb.Layer{}, fmt.Errorf("unable to determine if multiple artifacts were created\n%w", err)
+	} else if err != nil && os.IsNotExist(err) {
+		a.Logger.Infof("Restoring multiple artifacts")
+		err := copyDirectory(layer.Path, a.ApplicationPath)
+		if err != nil {
+			return libcnb.Layer{}, fmt.Errorf("unable to restore multiple artifacts\n%w", err)
 		}
+	} else {
+		return libcnb.Layer{}, fmt.Errorf("unable to restore artifacts\n%w", err)
 	}
 
 	return layer, nil
@@ -165,9 +175,11 @@ func copyDirectory(from, to string) error {
 	if err != nil {
 		return err
 	}
+
 	for _, file := range files {
 		sourcePath := filepath.Join(from, file.Name())
 		destPath := filepath.Join(to, file.Name())
+
 		fileInfo, err := os.Stat(sourcePath)
 		if err != nil {
 			return err
@@ -183,6 +195,7 @@ func copyDirectory(from, to string) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -192,8 +205,10 @@ func copyFile(from string, to string) error {
 		return fmt.Errorf("unable to open file%s\n%w", from, err)
 	}
 	defer in.Close()
+
 	if err := sherpa.CopyFile(in, to); err != nil {
 		return fmt.Errorf("unable to copy %s to %s\n%w", from, to, err)
 	}
+
 	return nil
 }
