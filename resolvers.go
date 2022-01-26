@@ -20,6 +20,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -131,7 +132,6 @@ func (a *ArtifactResolver) Pattern() string {
 // Resolve resolves the artifact that was created by the build system.
 func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 	pattern := a.Pattern()
-
 	file := filepath.Join(applicationPath, pattern)
 	candidates, err := filepath.Glob(file)
 	if err != nil {
@@ -161,6 +161,37 @@ func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
 	}
 	return "", fmt.Errorf(helpMsg)
+}
+
+func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error) {
+	pattern := a.Pattern()
+	file := filepath.Join(applicationPath, pattern)
+	candidates, err := filepath.Glob(file)
+	if err != nil {
+		return []string{}, fmt.Errorf("unable to find files with %s\n%w", pattern, err)
+	}
+
+	if len(candidates) > 0 {
+		return candidates, nil
+	}
+
+	entries, err := os.ReadDir(filepath.Dir(pattern))
+	if err != nil && os.IsNotExist(err) {
+		return []string{}, fmt.Errorf("unable to find directory referened by pattern: %s", pattern)
+	} else if err != nil {
+		return []string{}, fmt.Errorf("unable to read directory\n%w", err)
+	}
+
+	contents := []string{}
+	for _, entry := range entries {
+		contents = append(contents, entry.Name())
+	}
+
+	helpMsg := fmt.Sprintf("unable to find any built artifacts in %s, directory contains: %s", pattern, contents)
+	if len(a.AdditionalHelpMessage) > 0 {
+		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
+	}
+	return []string{}, fmt.Errorf(helpMsg)
 }
 
 // ResolveArguments resolves the arguments that should be passed to a build system.

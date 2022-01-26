@@ -60,7 +60,7 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 		})
 	})
 
-	context("ArtifactResolver", func() {
+	context("Resolve", func() {
 		var (
 			detector *mocks.InterestingFileDetector
 			path     string
@@ -202,6 +202,73 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 				Expect(libbs.ResolveArguments("TEST_CONFIGURATION_KEY", resolver)).
 					To(Equal([]string{"test-argument-3", "test-argument-4"}))
 			})
+		})
+	})
+
+	context("ResolveMany", func() {
+		var (
+			detector *mocks.InterestingFileDetector
+			path     string
+			resolver libbs.ArtifactResolver
+		)
+
+		it.Before(func() {
+			var err error
+
+			detector = &mocks.InterestingFileDetector{}
+
+			path, err = ioutil.TempDir("", "multiple-artifact-resolver")
+			Expect(err).NotTo(HaveOccurred())
+
+			resolver = libbs.ArtifactResolver{
+				ArtifactConfigurationKey: "TEST_ARTIFACT_CONFIGURATION_KEY",
+				ConfigurationResolver: libpak.ConfigurationResolver{
+					Configurations: []libpak.BuildpackConfiguration{
+						{Name: "TEST_ARTIFACT_CONFIGURATION_KEY", Default: "test-*"},
+					},
+				},
+				ModuleConfigurationKey:  "TEST_MODULE_CONFIGURATION_KEY",
+				InterestingFileDetector: detector,
+			}
+		})
+
+		it.After(func() {
+			Expect(os.RemoveAll(path)).To(Succeed())
+		})
+
+		it("passes with a single candidate", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file"), []byte{}, 0644)).To(Succeed())
+			Expect(resolver.ResolveMany(path)).To(Equal([]string{filepath.Join(path, "test-file")}))
+		})
+
+		it("passes with multiple candidates", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file"), []byte{}, 0644)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file-1"), []byte{}, 0644)).To(Succeed())
+
+			Expect(resolver.ResolveMany(path)).To(ContainElements(filepath.Join(path, "test-file"), filepath.Join(path, "test-file-1")))
+		})
+
+		it("passes with a single folder candidate", func() {
+			Expect(os.Mkdir(filepath.Join(path, "test-folder"), os.ModePerm)).To(Succeed())
+			Expect(resolver.ResolveMany(path)).To(ContainElement(filepath.Join(path, "test-folder")))
+		})
+
+		it("passes with multiple folders", func() {
+			Expect(os.Mkdir(filepath.Join(path, "test-folder-1"), os.ModePerm)).To(Succeed())
+			Expect(os.Mkdir(filepath.Join(path, "test-folder-2"), os.ModePerm)).To(Succeed())
+			Expect(resolver.ResolveMany(path)).To(ContainElements(filepath.Join(path, "test-folder-1"), filepath.Join(path, "test-folder-2")))
+		})
+
+		it("passes with a file and a folder", func() {
+			Expect(ioutil.WriteFile(filepath.Join(path, "test-file"), []byte{}, 0644)).To(Succeed())
+			Expect(os.Mkdir(filepath.Join(path, "test-folder-1"), os.ModePerm)).To(Succeed())
+			Expect(resolver.ResolveMany(path)).To(ContainElements(filepath.Join(path, "test-file"), filepath.Join(path, "test-folder-1")))
+		})
+
+		it("fails with zero candidates", func() {
+			_, err := resolver.ResolveMany(path)
+
+			Expect(err).To(MatchError(HavePrefix("unable to find any built artifacts in test-*, directory contains:")))
 		})
 	})
 }
