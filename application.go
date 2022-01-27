@@ -63,6 +63,10 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 			return libcnb.Layer{}, fmt.Errorf("error running build\n%w", err)
 		}
 
+		// In some cases, process output does not end with a clean line of output
+		// This resets the cursor to the beginningo of the next line so indentation lines up
+		a.Logger.Info()
+
 		// Persist Artifacts
 		artifacts, err := a.ArtifactResolver.ResolveMany(a.ApplicationPath)
 		if err != nil {
@@ -144,6 +148,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 	// Restore compiled artifacts
 	file := filepath.Join(layer.Path, "application.zip")
 	if _, err := os.Stat(file); err == nil {
+		a.Logger.Header("Restoring application artifact")
 		in, err := os.Open(file)
 		if err != nil {
 			return libcnb.Layer{}, fmt.Errorf("unable to open %s\n%w", file, err)
@@ -154,7 +159,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 			return libcnb.Layer{}, fmt.Errorf("unable to extract %s\n%w", file, err)
 		}
 	} else if err != nil && os.IsNotExist(err) {
-		a.Logger.Infof("Restoring multiple artifacts")
+		a.Logger.Header("Restoring multiple artifacts")
 		err := copyDirectory(layer.Path, a.ApplicationPath)
 		if err != nil {
 			return libcnb.Layer{}, fmt.Errorf("unable to restore multiple artifacts\n%w", err)
