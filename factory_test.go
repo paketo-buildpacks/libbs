@@ -86,7 +86,6 @@ func testFactory(t *testing.T, context spec.G, it spec.S) {
 				},
 			}
 			bomScanner := sbom.NewSyftCLISBOMScanner(libcnb.Layers{}, executor, bard.Logger{})
-			buildpackAPI := "0.7"
 
 			application, err = applicationFactory.NewApplication(
 				map[string]interface{}{"addl-key": "addl-value"},
@@ -97,7 +96,6 @@ func testFactory(t *testing.T, context spec.G, it spec.S) {
 				nil,
 				appDir,
 				bomScanner,
-				buildpackAPI,
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})

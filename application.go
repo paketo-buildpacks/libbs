@@ -44,7 +44,6 @@ type Application struct {
 	Logger           bard.Logger
 	BOM              *libcnb.BOM
 	SBOMScanner      sbom.SBOMScanner
-	BuildpackAPI     string
 }
 
 func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
@@ -123,14 +122,12 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 		return libcnb.Layer{}, fmt.Errorf("unable to create Build SBoM \n%w", err)
 	}
 
-	if a.BuildpackAPI == "0.6" || a.BuildpackAPI == "0.5" || a.BuildpackAPI == "0.4" || a.BuildpackAPI == "0.3" || a.BuildpackAPI == "0.2" || a.BuildpackAPI == "0.1" {
-		entry, err := a.Cache.AsBOMEntry()
-		if err != nil {
-			return libcnb.Layer{}, fmt.Errorf("unable to generate build dependencies\n%w", err)
-		}
-		entry.Metadata["layer"] = a.Cache.Name()
-		a.BOM.Entries = append(a.BOM.Entries, entry)
+	entry, err := a.Cache.AsBOMEntry()
+	if err != nil {
+		return libcnb.Layer{}, fmt.Errorf("unable to generate build dependencies\n%w", err)
 	}
+	entry.Metadata["layer"] = a.Cache.Name()
+	a.BOM.Entries = append(a.BOM.Entries, entry)
 
 	// Purge Workspace
 	a.Logger.Header("Removing source code")

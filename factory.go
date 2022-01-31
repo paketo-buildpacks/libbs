@@ -37,7 +37,6 @@ func (f *ApplicationFactory) NewApplication(
 	bom *libcnb.BOM,
 	applicationPath string,
 	bomScanner sbom.SBOMScanner,
-	buildpackAPI string,
 ) (Application, error) {
 
 	app := Application{
@@ -49,7 +48,6 @@ func (f *ApplicationFactory) NewApplication(
 		Executor:         f.Executor,
 		BOM:              bom,
 		SBOMScanner:      bomScanner,
-		BuildpackAPI:     buildpackAPI,
 	}
 
 	expected, err := f.expectedMetadata(additionalMetadata, app)
