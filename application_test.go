@@ -26,6 +26,7 @@ import (
 
 	"github.com/buildpacks/libcnb"
 	. "github.com/onsi/gomega"
+	"github.com/paketo-buildpacks/libjvm"
 	"github.com/paketo-buildpacks/libpak"
 	"github.com/paketo-buildpacks/libpak/bard"
 	"github.com/paketo-buildpacks/libpak/effect"
@@ -85,10 +86,9 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 				map[string]interface{}{},
 				libcnb.LayerTypes{Cache: true},
 			),
-			Logger:       bard.Logger{},
-			BOM:          bom,
-			SBOMScanner:  sbomScanner,
-			BuildpackAPI: ctx.Buildpack.API,
+			Logger:      bard.Logger{},
+			BOM:         bom,
+			SBOMScanner: sbomScanner,
 		}
 	})
 
@@ -133,7 +133,24 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		Expect(filepath.Join(ctx.Application.Path, "fixture-marker")).To(BeARegularFile())
 
 		sbomScanner.AssertCalled(t, "ScanBuild", ctx.Application.Path, libcnb.CycloneDXJSON, libcnb.SyftJSON)
-		Expect(bom.Entries).To(HaveLen(0))
+		Expect(bom.Entries).To(HaveLen(1))
+		Expect(bom.Entries).To(Equal([]libcnb.BOMEntry{
+			libcnb.BOMEntry{
+				Name: "build-dependencies",
+				Metadata: map[string]interface{}{
+					"layer": "cache",
+					"dependencies": []libjvm.MavenJAR{
+						{
+							Name:    "test-file",
+							Version: "1.1.1",
+							SHA256:  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+						},
+					},
+				},
+				Launch: false,
+				Build:  true,
+			},
+		}))
 	})
 
 	context("contributes layer with ", func() {
@@ -285,7 +302,6 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 				Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-executable.jar")).To(BeAnExistingFile())
 				Expect(filepath.Join(ctx.Application.Path, "code-sources", "source-stub-application.jar")).To(BeAnExistingFile())
 				Expect(filepath.Join(ctx.Application.Path, "code-sources", "source-stub-executable.jar")).To(BeAnExistingFile())
-
 			})
 		})
 	})
