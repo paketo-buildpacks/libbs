@@ -224,7 +224,7 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 				ArtifactConfigurationKey: "TEST_ARTIFACT_CONFIGURATION_KEY",
 				ConfigurationResolver: libpak.ConfigurationResolver{
 					Configurations: []libpak.BuildpackConfiguration{
-						{Name: "TEST_ARTIFACT_CONFIGURATION_KEY", Default: "test-*"},
+						{Name: "TEST_ARTIFACT_CONFIGURATION_KEY", Default: "test-* target/*-runner.jar target/lib"},
 					},
 				},
 				ModuleConfigurationKey:  "TEST_MODULE_CONFIGURATION_KEY",
@@ -268,7 +268,16 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 		it("fails with zero candidates", func() {
 			_, err := resolver.ResolveMany(path)
 
-			Expect(err).To(MatchError(HavePrefix("unable to find any built artifacts in test-*, directory contains:")))
+			Expect(err).To(MatchError(HavePrefix(`unable to find any built artifacts for pattern: "test-* target/*-runner.jar target/lib"`)))
+		})
+
+		it("passes with multiple space separated globs", func() {
+			Expect(os.Mkdir(filepath.Join(path, "target"), os.ModePerm)).To(Succeed())
+			runnerJarPath := filepath.Join(path, "target", "function-1.0.0-SNAPSHOT-runner.jar")
+			Expect(ioutil.WriteFile(runnerJarPath, []byte{}, 0644)).To(Succeed())
+			libPath := filepath.Join(path, "target", "lib")
+			Expect(os.Mkdir(libPath, os.ModePerm)).To(Succeed())
+			Expect(resolver.ResolveMany(path)).To(Equal([]string{runnerJarPath, libPath}))
 		})
 	})
 }
