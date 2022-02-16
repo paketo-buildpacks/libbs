@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/magiconair/properties"
 	"github.com/mattn/go-shellwords"
@@ -183,26 +184,18 @@ func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error)
 	}
 
 	if len(badPatterns) > 0 {
-		return []string{}, fmt.Errorf("unable to proceed due to bad pattern(s):%s", patternsToString(badPatterns))
+		return []string{}, fmt.Errorf("unable to proceed due to bad pattern(s):\n%s", strings.Join(badPatterns, "\n"))
 	}
 
 	if len(candidates) > 0 {
 		return candidates, nil
 	}
 
-	helpMsg := fmt.Sprintf("unable to find any built artifacts for pattern(s):%s", patternsToString(patterns))
+	helpMsg := fmt.Sprintf("unable to find any built artifacts for pattern(s):\n%s", strings.Join(patterns, "\n"))
 	if len(a.AdditionalHelpMessage) > 0 {
 		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
 	}
 	return []string{}, fmt.Errorf(helpMsg)
-}
-
-func patternsToString(patterns []string) string {
-	msg := ""
-	for _, pattern := range patterns {
-		msg = fmt.Sprintf("%s\n%s", msg, pattern)
-	}
-	return msg
 }
 
 // ResolveArguments resolves the arguments that should be passed to a build system.
