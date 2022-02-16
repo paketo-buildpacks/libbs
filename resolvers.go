@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/magiconair/properties"
 	"github.com/mattn/go-shellwords"
@@ -167,24 +168,30 @@ func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error)
 
 	patterns, err := shellwords.Parse(pattern)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse shellwords pattern: %w", err)
+		return []string{}, fmt.Errorf("unable to parse shellwords patterns\n%w", err)
 	}
 
 	var candidates []string
+	var badPatterns []string
 	for _, pattern := range patterns {
 		file := filepath.Join(applicationPath, pattern)
 		cs, err := filepath.Glob(file)
 		if err != nil {
-			return nil, fmt.Errorf("unable to find files with %s\n%w", pattern, err)
+			// err will only be ErrBadPattern / "syntax error in pattern"
+			badPatterns = append(badPatterns, pattern)
 		}
 		candidates = append(candidates, cs...)
+	}
+
+	if len(badPatterns) > 0 {
+		return []string{}, fmt.Errorf("unable to proceed due to bad pattern(s):\n%s", strings.Join(badPatterns, "\n"))
 	}
 
 	if len(candidates) > 0 {
 		return candidates, nil
 	}
 
-	helpMsg := fmt.Sprintf("unable to find any built artifacts for pattern: %q", pattern)
+	helpMsg := fmt.Sprintf("unable to find any built artifacts for pattern(s):\n%s", strings.Join(patterns, "\n"))
 	if len(a.AdditionalHelpMessage) > 0 {
 		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
 	}
