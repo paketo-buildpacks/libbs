@@ -116,7 +116,7 @@ type ArtifactResolver struct {
 	AdditionalHelpMessage string
 }
 
-// Pattern returns the glob that ArtifactResolver will use for resolution.
+// Pattern returns the space separated list of globs that ArtifactResolver will use for resolution.
 func (a *ArtifactResolver) Pattern() string {
 	pattern, ok := a.ConfigurationResolver.Resolve(a.ArtifactConfigurationKey)
 	if ok {
