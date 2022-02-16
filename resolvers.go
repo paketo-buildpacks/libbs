@@ -116,7 +116,7 @@ type ArtifactResolver struct {
 	AdditionalHelpMessage string
 }
 
-// Pattern returns the glob that ArtifactResolver will use for resolution.
+// Pattern returns the space separated list of globs that ArtifactResolver will use for resolution.
 func (a *ArtifactResolver) Pattern() string {
 	pattern, ok := a.ConfigurationResolver.Resolve(a.ArtifactConfigurationKey)
 	if ok {
@@ -167,29 +167,42 @@ func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error)
 
 	patterns, err := shellwords.Parse(pattern)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse shellwords pattern: %w", err)
+		return []string{}, fmt.Errorf("unable to parse shellwords patterns\n%w", err)
 	}
 
 	var candidates []string
+	var badPatterns []string
 	for _, pattern := range patterns {
 		file := filepath.Join(applicationPath, pattern)
 		cs, err := filepath.Glob(file)
 		if err != nil {
-			continue
-			return nil, fmt.Errorf("unable to find files with %s\n%w", pattern, err)
+			// err will only be ErrBadPattern / "syntax error in pattern"
+			badPatterns = append(badPatterns, pattern)
 		}
 		candidates = append(candidates, cs...)
+	}
+
+	if len(badPatterns) > 0 {
+		return []string{}, fmt.Errorf("unable to proceed due to bad pattern(s):%s", patternsToString(badPatterns))
 	}
 
 	if len(candidates) > 0 {
 		return candidates, nil
 	}
 
-	helpMsg := fmt.Sprintf("unable to find any built artifacts for pattern: %q", pattern)
+	helpMsg := fmt.Sprintf("unable to find any built artifacts for pattern(s):%s", patternsToString(patterns))
 	if len(a.AdditionalHelpMessage) > 0 {
 		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
 	}
 	return []string{}, fmt.Errorf(helpMsg)
+}
+
+func patternsToString(patterns []string) string {
+	msg := ""
+	for _, pattern := range patterns {
+		msg = fmt.Sprintf("%s\n%s", msg, pattern)
+	}
+	return msg
 }
 
 // ResolveArguments resolves the arguments that should be passed to a build system.
