@@ -20,9 +20,9 @@ import (
 	"archive/zip"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/magiconair/properties"
 	"github.com/mattn/go-shellwords"
@@ -117,7 +117,7 @@ type ArtifactResolver struct {
 	AdditionalHelpMessage string
 }
 
-// Pattern returns the glob that ArtifactResolver will use for resolution.
+// Pattern returns the space separated list of globs that ArtifactResolver will use for resolution.
 func (a *ArtifactResolver) Pattern() string {
 	pattern, ok := a.ConfigurationResolver.Resolve(a.ArtifactConfigurationKey)
 	if ok {
@@ -165,29 +165,33 @@ func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 
 func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error) {
 	pattern := a.Pattern()
-	file := filepath.Join(applicationPath, pattern)
-	candidates, err := filepath.Glob(file)
+
+	patterns, err := shellwords.Parse(pattern)
 	if err != nil {
-		return []string{}, fmt.Errorf("unable to find files with %s\n%w", pattern, err)
+		return []string{}, fmt.Errorf("unable to parse shellwords patterns\n%w", err)
+	}
+
+	var candidates []string
+	var badPatterns []string
+	for _, pattern := range patterns {
+		file := filepath.Join(applicationPath, pattern)
+		cs, err := filepath.Glob(file)
+		if err != nil {
+			// err will only be ErrBadPattern / "syntax error in pattern"
+			badPatterns = append(badPatterns, pattern)
+		}
+		candidates = append(candidates, cs...)
+	}
+
+	if len(badPatterns) > 0 {
+		return []string{}, fmt.Errorf("unable to proceed due to bad pattern(s):\n%s", strings.Join(badPatterns, "\n"))
 	}
 
 	if len(candidates) > 0 {
 		return candidates, nil
 	}
 
-	entries, err := os.ReadDir(filepath.Dir(pattern))
-	if err != nil && os.IsNotExist(err) {
-		return []string{}, fmt.Errorf("unable to find directory referened by pattern: %s", pattern)
-	} else if err != nil {
-		return []string{}, fmt.Errorf("unable to read directory\n%w", err)
-	}
-
-	contents := []string{}
-	for _, entry := range entries {
-		contents = append(contents, entry.Name())
-	}
-
-	helpMsg := fmt.Sprintf("unable to find any built artifacts in %s, directory contains: %s", pattern, contents)
+	helpMsg := fmt.Sprintf("unable to find any built artifacts for pattern(s):\n%s", strings.Join(patterns, "\n"))
 	if len(a.AdditionalHelpMessage) > 0 {
 		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
 	}

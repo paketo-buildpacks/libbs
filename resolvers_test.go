@@ -268,7 +268,63 @@ func testResolvers(t *testing.T, context spec.G, it spec.S) {
 		it("fails with zero candidates", func() {
 			_, err := resolver.ResolveMany(path)
 
-			Expect(err).To(MatchError(HavePrefix("unable to find any built artifacts in test-*, directory contains:")))
+			Expect(err).To(MatchError(HavePrefix("unable to find any built artifacts for pattern(s):\ntest-*")))
+		})
+
+		context("ResolveMany with multiple glob patterns", func() {
+			it.Before(func() {
+				resolver.ConfigurationResolver.Configurations[0] = libpak.BuildpackConfiguration{
+					Name: "TEST_ARTIFACT_CONFIGURATION_KEY", Default: "test-* target/*-runner.jar target/lib"}
+			})
+
+			it("passes with a single candidate", func() {
+				Expect(ioutil.WriteFile(filepath.Join(path, "test-file"), []byte{}, 0644)).To(Succeed())
+				Expect(resolver.ResolveMany(path)).To(Equal([]string{filepath.Join(path, "test-file")}))
+			})
+
+			it("passes with multiple space separated globs", func() {
+				Expect(os.Mkdir(filepath.Join(path, "target"), os.ModePerm)).To(Succeed())
+
+				runnerJarPath := filepath.Join(path, "target", "function-1.0.0-SNAPSHOT-runner.jar")
+				Expect(ioutil.WriteFile(runnerJarPath, []byte{}, 0644)).To(Succeed())
+
+				libPath := filepath.Join(path, "target", "lib")
+				Expect(os.Mkdir(libPath, os.ModePerm)).To(Succeed())
+
+				Expect(resolver.ResolveMany(path)).To(Equal([]string{runnerJarPath, libPath}))
+			})
+
+			it("fails with zero candidates", func() {
+				_, err := resolver.ResolveMany(path)
+
+				Expect(err).To(MatchError(HavePrefix("unable to find any built artifacts for pattern(s):\ntest-*\ntarget/*-runner.jar\ntarget/lib")))
+			})
+		})
+
+		context("ResolveMany with a bad pattern", func() {
+			it.Before(func() {
+				resolver.ConfigurationResolver.Configurations[0] = libpak.BuildpackConfiguration{
+					Name: "TEST_ARTIFACT_CONFIGURATION_KEY", Default: "["}
+			})
+
+			it("fails with a single error", func() {
+				_, err := resolver.ResolveMany(path)
+
+				Expect(err).To(MatchError("unable to proceed due to bad pattern(s):\n["))
+			})
+		})
+
+		context("ResolveMany with many bad patterns", func() {
+			it.Before(func() {
+				resolver.ConfigurationResolver.Configurations[0] = libpak.BuildpackConfiguration{
+					Name: "TEST_ARTIFACT_CONFIGURATION_KEY", Default: "first-bad-[ test-* second-bad-["}
+			})
+
+			it("fails with multiple errors", func() {
+				_, err := resolver.ResolveMany(path)
+
+				Expect(err).To(MatchError("unable to proceed due to bad pattern(s):\nfirst-bad-[\nsecond-bad-["))
+			})
 		})
 	})
 }
