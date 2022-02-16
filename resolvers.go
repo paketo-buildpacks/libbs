@@ -175,7 +175,6 @@ func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error)
 		file := filepath.Join(applicationPath, pattern)
 		cs, err := filepath.Glob(file)
 		if err != nil {
-			continue
 			return nil, fmt.Errorf("unable to find files with %s\n%w", pattern, err)
 		}
 		candidates = append(candidates, cs...)
