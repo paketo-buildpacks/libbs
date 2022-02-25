@@ -135,7 +135,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		sbomScanner.AssertCalled(t, "ScanBuild", ctx.Application.Path, libcnb.CycloneDXJSON, libcnb.SyftJSON)
 		Expect(bom.Entries).To(HaveLen(1))
 		Expect(bom.Entries).To(Equal([]libcnb.BOMEntry{
-			libcnb.BOMEntry{
+			{
 				Name: "build-dependencies",
 				Metadata: map[string]interface{}{
 					"layer": "cache",
@@ -151,6 +151,54 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 				Build:  true,
 			},
 		}))
+	})
+
+	context("label-based BOM is surpressed", func() {
+		it.Before(func() {
+			Expect(os.Setenv("BP_BOM_LABEL_DISABLED", "true")).To(Succeed())
+		})
+
+		it.After(func() {
+			Expect(os.Unsetenv("BP_BOM_LABEL_DISABLED")).To(Succeed())
+		})
+
+		it("contributes layer", func() {
+			in, err := os.Open(filepath.Join("testdata", "stub-application.jar"))
+			Expect(err).NotTo(HaveOccurred())
+			out, err := os.OpenFile(filepath.Join(ctx.Application.Path, "stub-application.jar"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = io.Copy(out, in)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(in.Close()).To(Succeed())
+			Expect(out.Close()).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(cache.Path, "test-file-1.1.1.jar"), []byte{}, 0644)).To(Succeed())
+
+			application.Logger = bard.NewLogger(ioutil.Discard)
+			executor.On("Execute", mock.Anything).Return(nil)
+
+			layer, err := ctx.Layers.Layer("test-layer")
+			Expect(err).NotTo(HaveOccurred())
+
+			layer, err = application.Contribute(layer)
+
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(layer.Cache).To(BeTrue())
+
+			e := executor.Calls[0].Arguments[0].(effect.Execution)
+			Expect(e.Command).To(Equal("test-command"))
+			Expect(e.Args).To(Equal([]string{"test-argument"}))
+			Expect(e.Dir).To(Equal(ctx.Application.Path))
+			Expect(e.Stdout).NotTo(BeNil())
+			Expect(e.Stderr).NotTo(BeNil())
+
+			Expect(filepath.Join(layer.Path, "application.zip")).To(BeARegularFile())
+			Expect(filepath.Join(ctx.Application.Path, "stub-application.jar")).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(ctx.Application.Path, "fixture-marker")).To(BeARegularFile())
+
+			sbomScanner.AssertCalled(t, "ScanBuild", ctx.Application.Path, libcnb.CycloneDXJSON, libcnb.SyftJSON)
+			Expect(bom.Entries).To(HaveLen(0))
+		})
 	})
 
 	context("contributes layer with ", func() {

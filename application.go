@@ -122,12 +122,14 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 		return libcnb.Layer{}, fmt.Errorf("unable to create Build SBoM \n%w", err)
 	}
 
-	entry, err := a.Cache.AsBOMEntry()
-	if err != nil {
-		return libcnb.Layer{}, fmt.Errorf("unable to generate build dependencies\n%w", err)
+	if !sherpa.ResolveBool("BP_BOM_LABEL_DISABLED") {
+		entry, err := a.Cache.AsBOMEntry()
+		if err != nil {
+			return libcnb.Layer{}, fmt.Errorf("unable to generate build dependencies\n%w", err)
+		}
+		entry.Metadata["layer"] = a.Cache.Name()
+		a.BOM.Entries = append(a.BOM.Entries, entry)
 	}
-	entry.Metadata["layer"] = a.Cache.Name()
-	a.BOM.Entries = append(a.BOM.Entries, entry)
 
 	// Purge Workspace
 	a.Logger.Header("Removing source code")
