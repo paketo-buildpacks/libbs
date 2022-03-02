@@ -153,7 +153,7 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 		}))
 	})
 
-	context("label-based BOM is surpressed", func() {
+	context("label-based BOM is suppressed", func() {
 		it.Before(func() {
 			Expect(os.Setenv("BP_BOM_LABEL_DISABLED", "true")).To(Succeed())
 		})
