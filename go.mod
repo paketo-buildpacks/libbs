@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/buildpacks/libcnb v1.25.5
-	github.com/magiconair/properties v1.8.5
+	github.com/magiconair/properties v1.8.6
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/onsi/gomega v1.18.1
 	github.com/paketo-buildpacks/libjvm v1.35.0
