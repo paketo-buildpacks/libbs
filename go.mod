@@ -7,7 +7,7 @@ require (
 	github.com/magiconair/properties v1.8.6
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/onsi/gomega v1.19.0
-	github.com/paketo-buildpacks/libjvm v1.37.0
+	github.com/paketo-buildpacks/libjvm v1.38.0
 	github.com/paketo-buildpacks/libpak v1.60.1
 	github.com/sclevine/spec v1.4.0
 	github.com/stretchr/testify v1.8.0
