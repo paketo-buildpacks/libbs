@@ -220,6 +220,8 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 					Expect(in.Close()).To(Succeed())
 					Expect(out.Close()).To(Succeed())
 				}
+				Expect(os.WriteFile(filepath.Join(ctx.Application.Path, "random-file"), []byte(""), 0644)).To(BeNil())
+				Expect(os.Symlink(filepath.Join(ctx.Application.Path, "random-file"), filepath.Join(ctx.Application.Path, "random-link"))).To(BeNil())
 			})
 
 			it("matches multiple files", func() {
@@ -250,6 +252,8 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 				Expect(filepath.Join(layer.Path, "application.zip")).NotTo(BeAnExistingFile())
 				Expect(filepath.Join(ctx.Application.Path, "stub-application.jar")).To(BeAnExistingFile())
 				Expect(filepath.Join(ctx.Application.Path, "stub-executable.jar")).To(BeAnExistingFile())
+				Expect(filepath.Join(ctx.Application.Path, "random-file")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(ctx.Application.Path, "random-link")).NotTo(BeAnExistingFile())
 			})
 
 			it("matches a folder", func() {
@@ -280,6 +284,148 @@ func testApplication(t *testing.T, context spec.G, it spec.S) {
 				Expect(filepath.Join(layer.Path, "application.zip")).NotTo(BeAnExistingFile())
 				Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-application.jar")).To(BeAnExistingFile())
 				Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-executable.jar")).To(BeAnExistingFile())
+				Expect(filepath.Join(ctx.Application.Path, "random-file")).NotTo(BeAnExistingFile())
+				Expect(filepath.Join(ctx.Application.Path, "random-link")).NotTo(BeAnExistingFile())
+			})
+
+			context("source-removal vars are set", func() {
+				it("does not remove the included files", func() {
+					artifactResolver := libbs.ArtifactResolver{
+						ConfigurationResolver: libpak.ConfigurationResolver{
+							Configurations: []libpak.BuildpackConfiguration{{Default: "target/native-sources"}, {Name: "BP_INCLUDE_FILES", Default: "random-*"}},
+						},
+					}
+					application.ArtifactResolver = artifactResolver
+
+					application.Logger = bard.NewLogger(ioutil.Discard)
+					executor.On("Execute", mock.Anything).Return(nil)
+
+					layer, err := ctx.Layers.Layer("test-layer")
+					Expect(err).NotTo(HaveOccurred())
+
+					layer, err = application.Contribute(layer)
+
+					Expect(err).NotTo(HaveOccurred())
+
+					e := executor.Calls[0].Arguments[0].(effect.Execution)
+					Expect(e.Command).To(Equal("test-command"))
+					Expect(e.Args).To(Equal([]string{"test-argument"}))
+					Expect(e.Dir).To(Equal(ctx.Application.Path))
+					Expect(e.Stdout).NotTo(BeNil())
+					Expect(e.Stderr).NotTo(BeNil())
+
+					Expect(filepath.Join(layer.Path, "application.zip")).NotTo(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-application.jar")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-executable.jar")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "random-file")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "random-link")).To(BeAnExistingFile())
+				})
+
+				it("removes the excluded files", func() {
+					artifactResolver := libbs.ArtifactResolver{
+						ConfigurationResolver: libpak.ConfigurationResolver{
+							Configurations: []libpak.BuildpackConfiguration{
+								{Default: "target/native-sources"},
+								{Name: "BP_INCLUDE_FILES", Default: "random-*"},
+								{Name: "BP_EXCLUDE_FILES", Default: "random-link"},
+							},
+						},
+					}
+					application.ArtifactResolver = artifactResolver
+
+					application.Logger = bard.NewLogger(ioutil.Discard)
+					executor.On("Execute", mock.Anything).Return(nil)
+
+					layer, err := ctx.Layers.Layer("test-layer")
+					Expect(err).NotTo(HaveOccurred())
+
+					layer, err = application.Contribute(layer)
+
+					Expect(err).NotTo(HaveOccurred())
+
+					e := executor.Calls[0].Arguments[0].(effect.Execution)
+					Expect(e.Command).To(Equal("test-command"))
+					Expect(e.Args).To(Equal([]string{"test-argument"}))
+					Expect(e.Dir).To(Equal(ctx.Application.Path))
+					Expect(e.Stdout).NotTo(BeNil())
+					Expect(e.Stderr).NotTo(BeNil())
+
+					Expect(filepath.Join(layer.Path, "application.zip")).NotTo(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-application.jar")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-executable.jar")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "random-file")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "random-link")).NotTo(BeAnExistingFile())
+				})
+
+				it("does not cause issues if all files are included", func() {
+					artifactResolver := libbs.ArtifactResolver{
+						ConfigurationResolver: libpak.ConfigurationResolver{
+							Configurations: []libpak.BuildpackConfiguration{
+								{Default: "target/native-sources"},
+								{Name: "BP_INCLUDE_FILES", Default: "*"},
+							},
+						},
+					}
+					application.ArtifactResolver = artifactResolver
+
+					application.Logger = bard.NewLogger(ioutil.Discard)
+					executor.On("Execute", mock.Anything).Return(nil)
+
+					layer, err := ctx.Layers.Layer("test-layer")
+					Expect(err).NotTo(HaveOccurred())
+
+					layer, err = application.Contribute(layer)
+
+					Expect(err).NotTo(HaveOccurred())
+
+					e := executor.Calls[0].Arguments[0].(effect.Execution)
+					Expect(e.Command).To(Equal("test-command"))
+					Expect(e.Args).To(Equal([]string{"test-argument"}))
+					Expect(e.Dir).To(Equal(ctx.Application.Path))
+					Expect(e.Stdout).NotTo(BeNil())
+					Expect(e.Stderr).NotTo(BeNil())
+
+					Expect(filepath.Join(layer.Path, "application.zip")).NotTo(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-application.jar")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-executable.jar")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "random-file")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "random-link")).To(BeAnExistingFile())
+				})
+
+				it("keeps interesting files even if all files are excluded", func() {
+					artifactResolver := libbs.ArtifactResolver{
+						ConfigurationResolver: libpak.ConfigurationResolver{
+							Configurations: []libpak.BuildpackConfiguration{
+								{Default: "target/native-sources"},
+								{Name: "BP_EXCLUDE_FILES", Default: "*"},
+							},
+						},
+					}
+					application.ArtifactResolver = artifactResolver
+
+					application.Logger = bard.NewLogger(ioutil.Discard)
+					executor.On("Execute", mock.Anything).Return(nil)
+
+					layer, err := ctx.Layers.Layer("test-layer")
+					Expect(err).NotTo(HaveOccurred())
+
+					layer, err = application.Contribute(layer)
+
+					Expect(err).NotTo(HaveOccurred())
+
+					e := executor.Calls[0].Arguments[0].(effect.Execution)
+					Expect(e.Command).To(Equal("test-command"))
+					Expect(e.Args).To(Equal([]string{"test-argument"}))
+					Expect(e.Dir).To(Equal(ctx.Application.Path))
+					Expect(e.Stdout).NotTo(BeNil())
+					Expect(e.Stderr).NotTo(BeNil())
+
+					Expect(filepath.Join(layer.Path, "application.zip")).NotTo(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-application.jar")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "native-sources", "stub-executable.jar")).To(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "random-file")).NotTo(BeAnExistingFile())
+					Expect(filepath.Join(ctx.Application.Path, "random-link")).NotTo(BeAnExistingFile())
+				})
 			})
 		})
 
