@@ -137,7 +137,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 	includeDirs, iset := a.ArtifactResolver.ConfigurationResolver.Resolve("BP_INCLUDE_FILES")
 	if includeDirs != "" {
 		if err := logic.Include(a.ApplicationPath, includeDirs); err != nil {
-			return libcnb.Layer{}, err
+			return libcnb.Layer{}, fmt.Errorf("unable to perform source-removal 'include' \n%w", err)
 		}
 	}
 	excludeDirs, eset := a.ArtifactResolver.ConfigurationResolver.Resolve("BP_EXCLUDE_FILES")
