@@ -31,6 +31,7 @@ import (
 	"github.com/paketo-buildpacks/libpak/crush"
 	"github.com/paketo-buildpacks/libpak/effect"
 	"github.com/paketo-buildpacks/libpak/sherpa"
+	"github.com/paketo-buildpacks/source-removal/logic"
 )
 
 type Application struct {
@@ -133,17 +134,32 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 
 	// Purge Workspace
 	a.Logger.Header("Removing source code")
-	cs, err := ioutil.ReadDir(a.ApplicationPath)
-	if err != nil {
-		return libcnb.Layer{}, fmt.Errorf("unable to list children of %s\n%w", a.ApplicationPath, err)
-	}
-	for _, c := range cs {
-		file := filepath.Join(a.ApplicationPath, c.Name())
-		if err := os.RemoveAll(file); err != nil {
-			return libcnb.Layer{}, fmt.Errorf("unable to remove %s\n%w", file, err)
+	includeDirs, iset := a.ArtifactResolver.ConfigurationResolver.Resolve("BP_INCLUDE_FILES")
+	if includeDirs != "" {
+		if err := logic.Include(a.ApplicationPath, includeDirs); err != nil {
+			return libcnb.Layer{}, fmt.Errorf("unable to perform source-removal 'include' \n%w", err)
 		}
 	}
-
+	excludeDirs, eset := a.ArtifactResolver.ConfigurationResolver.Resolve("BP_EXCLUDE_FILES")
+	if excludeDirs != "" {
+		if err := logic.Exclude(a.ApplicationPath, excludeDirs); err != nil {
+			return libcnb.Layer{}, fmt.Errorf("unable to perform source-removal 'exclude' \n%w", err)
+		}
+	}
+	// if the source remvoval env vars are all unset and the default values are all empty
+	// fall back to the legacy behavior
+	if excludeDirs == "" && includeDirs == "" && !iset && !eset {
+		cs, err := ioutil.ReadDir(a.ApplicationPath)
+		if err != nil {
+			return libcnb.Layer{}, fmt.Errorf("unable to list children of %s\n%w", a.ApplicationPath, err)
+		}
+		for _, c := range cs {
+			file := filepath.Join(a.ApplicationPath, c.Name())
+			if err := os.RemoveAll(file); err != nil {
+				return libcnb.Layer{}, fmt.Errorf("unable to remove %s\n%w", file, err)
+			}
+		}
+	}
 	// Restore compiled artifacts
 	file := filepath.Join(layer.Path, "application.zip")
 	if _, err := os.Stat(file); err == nil {
