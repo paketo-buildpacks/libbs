@@ -143,7 +143,7 @@ func (a Application) Contribute(layer libcnb.Layer) (libcnb.Layer, error) {
 	excludeDirs, eset := a.ArtifactResolver.ConfigurationResolver.Resolve("BP_EXCLUDE_FILES")
 	if excludeDirs != "" {
 		if err := logic.Exclude(a.ApplicationPath, excludeDirs); err != nil {
-			return libcnb.Layer{}, err
+			return libcnb.Layer{}, fmt.Errorf("unable to perform source-removal 'exclude' \n%w", err)
 		}
 	}
 	// if the source remvoval env vars are all unset and the default values are all empty
