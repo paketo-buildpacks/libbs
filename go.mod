@@ -6,7 +6,7 @@ require (
 	github.com/buildpacks/libcnb v1.27.0
 	github.com/magiconair/properties v1.8.6
 	github.com/mattn/go-shellwords v1.0.12
-	github.com/onsi/gomega v1.21.1
+	github.com/onsi/gomega v1.22.0
 	github.com/paketo-buildpacks/libjvm v1.40.0
 	github.com/paketo-buildpacks/libpak v1.63.0
 	github.com/paketo-buildpacks/source-removal v0.2.0
