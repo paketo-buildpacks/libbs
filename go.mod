@@ -6,12 +6,12 @@ require (
 	github.com/buildpacks/libcnb v1.28.0
 	github.com/magiconair/properties v1.8.7
 	github.com/mattn/go-shellwords v1.0.12
-	github.com/onsi/gomega v1.27.6
+	github.com/onsi/gomega v1.27.7
 	github.com/paketo-buildpacks/libjvm v1.42.0
 	github.com/paketo-buildpacks/libpak v1.65.0
 	github.com/paketo-buildpacks/source-removal v0.2.0
 	github.com/sclevine/spec v1.4.0
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.3
 )
 
 require (
@@ -24,7 +24,7 @@ require (
 	github.com/heroku/color v0.0.6 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.18 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
