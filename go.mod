@@ -7,15 +7,15 @@ require (
 	github.com/magiconair/properties v1.8.7
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/onsi/gomega v1.27.7
-	github.com/paketo-buildpacks/libjvm v1.42.0
+	github.com/paketo-buildpacks/libjvm v1.43.0
 	github.com/paketo-buildpacks/libpak v1.65.0
 	github.com/paketo-buildpacks/source-removal v0.2.0
 	github.com/sclevine/spec v1.4.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 )
 
 require (
-	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/BurntSushi/toml v1.3.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/creack/pty v1.1.18 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
