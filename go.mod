@@ -1,15 +1,15 @@
 module github.com/paketo-buildpacks/libbs
 
-go 1.23.3
+go 1.23.4
 
 require (
 	github.com/buildpacks/libcnb v1.30.4
 	github.com/magiconair/properties v1.8.9
 	github.com/mattn/go-shellwords v1.0.12
-	github.com/onsi/gomega v1.36.0
+	github.com/onsi/gomega v1.36.1
 	github.com/paketo-buildpacks/libjvm v1.46.0
-	github.com/paketo-buildpacks/libpak v1.72.0
-	github.com/paketo-buildpacks/source-removal v0.2.22
+	github.com/paketo-buildpacks/libpak v1.72.1
+	github.com/paketo-buildpacks/source-removal v0.2.23
 	github.com/sclevine/spec v1.4.0
 	github.com/stretchr/testify v1.10.0
 )
@@ -31,7 +31,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	golang.org/x/crypto v0.30.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
