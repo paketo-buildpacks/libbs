@@ -9,7 +9,7 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/paketo-buildpacks/libjvm v1.46.0
 	github.com/paketo-buildpacks/libpak v1.72.1
-	github.com/paketo-buildpacks/source-removal v0.2.27
+	github.com/paketo-buildpacks/source-removal v0.2.29
 	github.com/sclevine/spec v1.4.0
 	github.com/stretchr/testify v1.10.0
 )
