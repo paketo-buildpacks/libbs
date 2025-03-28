@@ -160,7 +160,7 @@ func (a *ArtifactResolver) Resolve(applicationPath string) (string, error) {
 	if len(a.AdditionalHelpMessage) > 0 {
 		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
 	}
-	return "", fmt.Errorf(helpMsg)
+	return "", fmt.Errorf("%s", helpMsg)
 }
 
 func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error) {
@@ -195,7 +195,7 @@ func (a *ArtifactResolver) ResolveMany(applicationPath string) ([]string, error)
 	if len(a.AdditionalHelpMessage) > 0 {
 		helpMsg = fmt.Sprintf("%s. %s", helpMsg, a.AdditionalHelpMessage)
 	}
-	return []string{}, fmt.Errorf(helpMsg)
+	return []string{}, fmt.Errorf("%s", helpMsg)
 }
 
 // ResolveArguments resolves the arguments that should be passed to a build system.
