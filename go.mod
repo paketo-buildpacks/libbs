@@ -6,7 +6,7 @@ require (
 	github.com/buildpacks/libcnb v1.30.4
 	github.com/magiconair/properties v1.8.10
 	github.com/mattn/go-shellwords v1.0.13
-	github.com/onsi/gomega v1.39.1
+	github.com/onsi/gomega v1.40.0
 	github.com/paketo-buildpacks/libjvm v1.46.0
 	github.com/paketo-buildpacks/libpak v1.73.0
 	github.com/paketo-buildpacks/source-removal v1.0.23
@@ -16,7 +16,7 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
+	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -25,7 +25,7 @@ require (
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.21 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
