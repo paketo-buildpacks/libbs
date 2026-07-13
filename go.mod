@@ -5,11 +5,11 @@ go 1.26.3
 require (
 	github.com/buildpacks/libcnb v1.30.4
 	github.com/magiconair/properties v1.8.10
-	github.com/mattn/go-shellwords v1.0.13
-	github.com/onsi/gomega v1.41.0
+	github.com/mattn/go-shellwords v1.0.14
+	github.com/onsi/gomega v1.42.1
 	github.com/paketo-buildpacks/libjvm v1.46.0
 	github.com/paketo-buildpacks/libpak v1.73.0
-	github.com/paketo-buildpacks/source-removal v1.0.29
+	github.com/paketo-buildpacks/source-removal v1.0.33
 	github.com/sclevine/spec v1.4.0
 	github.com/stretchr/testify v1.11.1
 )
@@ -32,11 +32,11 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/crypto v0.54.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	software.sslmate.com/src/go-pkcs12 v0.7.2 // indirect
+	software.sslmate.com/src/go-pkcs12 v0.7.3 // indirect
 )
